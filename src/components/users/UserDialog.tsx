@@ -1,7 +1,7 @@
 "use client";
 
-// نافذة إضافة/تعديل مستخدم
-import { useEffect, useState } from "react";
+// نافذة إضافة/تعديل مستخدم — مع validation real-time
+import { useEffect, useMemo, useState } from "react";
 import { Save } from "lucide-react";
 import {
   Dialog,
@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormField } from "@/components/ui/form-field";
 import {
   Select,
   SelectContent,
@@ -46,6 +47,20 @@ const EMPTY: UserFormValues = {
   password: "",
 };
 
+type Errors = Partial<Record<keyof UserFormValues, string>>;
+
+function validate(v: UserFormValues, isEdit: boolean): Errors {
+  const e: Errors = {};
+  if (v.name.trim().length < 2) e.name = "الاسم قصير جداً";
+  if (!v.email.includes("@") || !v.email.includes("."))
+    e.email = "البريد الإلكتروني غير صحيح";
+  if (!isEdit && v.password.length < 8)
+    e.password = "كلمة المرور يجب ألا تقل عن ٨ أحرف";
+  if (isEdit && v.password.length > 0 && v.password.length < 8)
+    e.password = "الكلمة الجديدة يجب ألا تقل عن ٨ أحرف";
+  return e;
+}
+
 interface Props {
   open: boolean;
   initial?: UserRow | null;
@@ -63,11 +78,15 @@ export function UserDialog({
 }: Props) {
   const isEdit = !!initial;
   const [values, setValues] = useState<UserFormValues>(EMPTY);
-  const [error, setError] = useState<string | null>(null);
+  const [touched, setTouched] = useState<Set<keyof UserFormValues>>(
+    new Set()
+  );
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setError(null);
+      setTouched(new Set());
+      setSubmitAttempted(false);
       setValues(
         initial
           ? {
@@ -81,15 +100,19 @@ export function UserDialog({
     }
   }, [open, initial]);
 
+  const errors = useMemo(() => validate(values, isEdit), [values, isEdit]);
+  const isValid = Object.keys(errors).length === 0;
+
+  const errorOf = (k: keyof UserFormValues): string | null =>
+    submitAttempted || touched.has(k) ? errors[k] ?? null : null;
+
+  const blur = (k: keyof UserFormValues) =>
+    setTouched((s) => new Set(s).add(k));
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!values.email.includes("@"))
-      return setError("البريد الإلكتروني غير صحيح");
-    if (values.name.trim().length < 2) return setError("الاسم قصير جداً");
-    if (!isEdit && values.password.length < 8)
-      return setError("كلمة المرور يجب ألا تقل عن ٨ أحرف");
-    if (isEdit && values.password.length > 0 && values.password.length < 8)
-      return setError("كلمة المرور الجديدة يجب ألا تقل عن ٨ أحرف");
+    setSubmitAttempted(true);
+    if (!isValid) return;
     onSubmit(values);
   }
 
@@ -107,37 +130,52 @@ export function UserDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="u-name">الاسم الكامل *</Label>
-            <Input
-              id="u-name"
-              value={values.name}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, name: e.target.value }))
-              }
-              placeholder="مثال: د. عبدالله السالم"
-              required
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2" noValidate>
+          <FormField
+            label="الاسم الكامل"
+            required
+            error={errorOf("name")}
+          >
+            {(p) => (
+              <Input
+                {...p}
+                value={values.name}
+                onChange={(e) =>
+                  setValues((v) => ({ ...v, name: e.target.value }))
+                }
+                onBlur={() => blur("name")}
+                placeholder="مثال: د. عبدالله السالم"
+                autoComplete="name"
+              />
+            )}
+          </FormField>
+
+          <FormField
+            label="البريد الإلكتروني"
+            required
+            error={errorOf("email")}
+          >
+            {(p) => (
+              <Input
+                {...p}
+                type="email"
+                value={values.email}
+                onChange={(e) =>
+                  setValues((v) => ({ ...v, email: e.target.value }))
+                }
+                onBlur={() => blur("email")}
+                placeholder="user@saei.local"
+                className="ltr text-left"
+                autoComplete="email"
+              />
+            )}
+          </FormField>
 
           <div className="space-y-1.5">
-            <Label htmlFor="u-email">البريد الإلكتروني *</Label>
-            <Input
-              id="u-email"
-              type="email"
-              value={values.email}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, email: e.target.value }))
-              }
-              placeholder="user@saei.local"
-              className="ltr text-left"
-              required
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="u-role">الدور *</Label>
+            <Label htmlFor="u-role" className="flex items-center gap-1">
+              الدور
+              <span className="text-saei-gold-700 text-xs">*</span>
+            </Label>
             <Select
               value={values.role}
               onValueChange={(v) =>
@@ -157,33 +195,36 @@ export function UserDialog({
             </Select>
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="u-pw">
-              {isEdit
-                ? "كلمة مرور جديدة (اختياري)"
-                : "كلمة المرور *"}
-            </Label>
-            <Input
-              id="u-pw"
-              type="password"
-              autoComplete="new-password"
-              value={values.password}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, password: e.target.value }))
-              }
-              placeholder={isEdit ? "اتركها فارغة للإبقاء" : "٨ أحرف على الأقل"}
-              minLength={isEdit ? 0 : 8}
-            />
-          </div>
-
-          {error && (
-            <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
+          <FormField
+            label={isEdit ? "كلمة مرور جديدة" : "كلمة المرور"}
+            required={!isEdit}
+            error={errorOf("password")}
+            hint={
+              isEdit
+                ? "اتركها فارغة للإبقاء على الحالية"
+                : "٨ أحرف على الأقل"
+            }
+          >
+            {(p) => (
+              <Input
+                {...p}
+                type="password"
+                autoComplete="new-password"
+                value={values.password}
+                onChange={(e) =>
+                  setValues((v) => ({ ...v, password: e.target.value }))
+                }
+                onBlur={() => blur("password")}
+              />
+            )}
+          </FormField>
 
           <DialogFooter className="gap-2">
-            <Button type="submit" variant="primary" disabled={submitting}>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={submitting || (submitAttempted && !isValid)}
+            >
               <Save className="h-4 w-4" />
               {submitting
                 ? "جاري الحفظ..."

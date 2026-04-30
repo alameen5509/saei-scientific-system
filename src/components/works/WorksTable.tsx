@@ -1,6 +1,7 @@
 "use client";
 
 // جدول الأعمال العلمية — تصميم desktop + بطاقات للجوال
+// + رؤوس قابلة للترتيب
 import { CalendarDays, AlertCircle } from "lucide-react";
 import {
   Table,
@@ -11,6 +12,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+  SortableHeader,
+  type SortState,
+} from "@/components/ui/sortable-header";
 import { WorkActionsMenu } from "./WorkActionsMenu";
 import {
   STAGE_LABEL,
@@ -24,8 +29,17 @@ import {
 } from "@/types/works";
 import { cn, toArabicDigits, formatDate } from "@/lib/utils";
 
+export type WorksSortKey =
+  | "title"
+  | "researcher"
+  | "progress"
+  | "deadline"
+  | "stage";
+
 interface Props {
   works: ScientificWork[];
+  sort: SortState<WorksSortKey> | null;
+  onSort: (key: WorksSortKey) => void;
   onView: (w: ScientificWork) => void;
   onEdit: (w: ScientificWork) => void;
   onAdvance: (w: ScientificWork) => void;
@@ -77,21 +91,13 @@ function DeadlineCell({ work }: { work: ScientificWork }) {
 
 export function WorksTable({
   works,
+  sort,
+  onSort,
   onView,
   onEdit,
   onAdvance,
   onDelete,
 }: Props) {
-  if (works.length === 0) {
-    return (
-      <div className="rounded-2xl border border-saei-purple-100 bg-white p-12 text-center">
-        <p className="text-stone-500">
-          لا توجد أعمال تطابق معايير البحث الحالية
-        </p>
-      </div>
-    );
-  }
-
   return (
     <>
       {/* جدول للشاشات الكبيرة */}
@@ -99,13 +105,48 @@ export function WorksTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[28%]">العنوان</TableHead>
+              <TableHead className="w-[28%]">
+                <SortableHeader<WorksSortKey>
+                  label="العنوان"
+                  sortKey="title"
+                  current={sort}
+                  onSort={onSort}
+                />
+              </TableHead>
               <TableHead>التخصص</TableHead>
               <TableHead>المسار</TableHead>
-              <TableHead>الباحث</TableHead>
-              <TableHead>المرحلة</TableHead>
-              <TableHead className="w-[14%]">التقدم</TableHead>
-              <TableHead>الموعد النهائي</TableHead>
+              <TableHead>
+                <SortableHeader<WorksSortKey>
+                  label="الباحث"
+                  sortKey="researcher"
+                  current={sort}
+                  onSort={onSort}
+                />
+              </TableHead>
+              <TableHead>
+                <SortableHeader<WorksSortKey>
+                  label="المرحلة"
+                  sortKey="stage"
+                  current={sort}
+                  onSort={onSort}
+                />
+              </TableHead>
+              <TableHead className="w-[14%]">
+                <SortableHeader<WorksSortKey>
+                  label="التقدم"
+                  sortKey="progress"
+                  current={sort}
+                  onSort={onSort}
+                />
+              </TableHead>
+              <TableHead>
+                <SortableHeader<WorksSortKey>
+                  label="الموعد النهائي"
+                  sortKey="deadline"
+                  current={sort}
+                  onSort={onSort}
+                />
+              </TableHead>
               <TableHead className="w-12">الإجراءات</TableHead>
             </TableRow>
           </TableHeader>

@@ -1,24 +1,17 @@
 // hook لإدارة بيانات الأعمال العلمية عبر API
 // — initial load: loading
-// — mutations: optimistic + rollback عند الفشل + toast للخطأ
+// — mutations: optimistic + rollback عند الفشل + toast من النظام العام
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
 import type { ScientificWork } from "@/types/works";
 import type { WorkFormValues } from "./WorkDialog";
-
-export interface ToastMessage {
-  id: number;
-  type: "success" | "error";
-  text: string;
-}
+import { useToast } from "@/components/ui/toast";
 
 export interface UseWorks {
   works: ScientificWork[];
   loading: boolean;
   error: string | null;
-  toast: ToastMessage | null;
-  dismissToast: () => void;
   refetch: () => Promise<void>;
   create: (values: WorkFormValues) => Promise<boolean>;
   update: (id: string, values: WorkFormValues) => Promise<boolean>;
@@ -26,7 +19,9 @@ export interface UseWorks {
   advance: (id: string) => Promise<boolean>;
 }
 
-async function readJson(res: Response): Promise<{ ok: boolean; error?: string; work?: ScientificWork }> {
+async function readJson(
+  res: Response
+): Promise<{ ok: boolean; error?: string; work?: ScientificWork }> {
   try {
     return await res.json();
   } catch {
@@ -38,20 +33,7 @@ export function useWorks(): UseWorks {
   const [works, setWorks] = useState<ScientificWork[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-
-  const showToast = useCallback((type: ToastMessage["type"], text: string) => {
-    setToast({ id: Date.now(), type, text });
-  }, []);
-
-  const dismissToast = useCallback(() => setToast(null), []);
-
-  // إخفاء التوست تلقائياً بعد 4 ثواني
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(t);
-  }, [toast]);
+  const toast = useToast();
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -88,23 +70,23 @@ export function useWorks(): UseWorks {
           throw new Error(json.error || "فشل إنشاء العمل");
         }
         setWorks((all) => [json.work as ScientificWork, ...all]);
-        showToast("success", `تمّت إضافة "${json.work.title}"`);
+        toast.success("تمّت إضافة العمل العلمي", {
+          description: json.work.title,
+        });
         return true;
       } catch (e) {
-        showToast(
-          "error",
-          e instanceof Error ? e.message : "خطأ غير متوقع"
-        );
+        toast.error("تعذّر إنشاء العمل", {
+          description: e instanceof Error ? e.message : undefined,
+        });
         return false;
       }
     },
-    [showToast]
+    [toast]
   );
 
   const update = useCallback(
     async (id: string, values: WorkFormValues): Promise<boolean> => {
       const previous = works;
-      // تحديث متفائل
       setWorks((all) =>
         all.map((w) =>
           w.id === id
@@ -134,26 +116,23 @@ export function useWorks(): UseWorks {
         setWorks((all) =>
           all.map((w) => (w.id === id ? (json.work as ScientificWork) : w))
         );
-        showToast("success", "تمّ حفظ التغييرات");
+        toast.success("تمّ حفظ التغييرات");
         return true;
       } catch (e) {
-        // rollback
         setWorks(previous);
-        showToast(
-          "error",
-          e instanceof Error ? e.message : "خطأ غير متوقع"
-        );
+        toast.error("تعذّر تحديث العمل", {
+          description: e instanceof Error ? e.message : undefined,
+        });
         return false;
       }
     },
-    [works, showToast]
+    [works, toast]
   );
 
   const remove = useCallback(
     async (id: string): Promise<boolean> => {
       const previous = works;
       const target = previous.find((w) => w.id === id);
-      // تحديث متفائل
       setWorks((all) => all.filter((w) => w.id !== id));
       try {
         const res = await fetch(`/api/works/${id}`, { method: "DELETE" });
@@ -161,18 +140,19 @@ export function useWorks(): UseWorks {
         if (!res.ok || !json.ok) {
           throw new Error(json.error || "فشل الحذف");
         }
-        showToast("success", `تمّ حذف "${target?.title ?? "العمل"}"`);
+        toast.success("تمّ الحذف", {
+          description: target?.title,
+        });
         return true;
       } catch (e) {
         setWorks(previous);
-        showToast(
-          "error",
-          e instanceof Error ? e.message : "خطأ غير متوقع"
-        );
+        toast.error("تعذّر الحذف", {
+          description: e instanceof Error ? e.message : undefined,
+        });
         return false;
       }
     },
-    [works, showToast]
+    [works, toast]
   );
 
   const advance = useCallback(
@@ -188,25 +168,22 @@ export function useWorks(): UseWorks {
         setWorks((all) =>
           all.map((w) => (w.id === id ? (json.work as ScientificWork) : w))
         );
-        showToast("success", "تمّ نقل المرحلة");
+        toast.success("تمّ نقل المرحلة");
         return true;
       } catch (e) {
-        showToast(
-          "error",
-          e instanceof Error ? e.message : "خطأ غير متوقع"
-        );
+        toast.error("تعذّر نقل المرحلة", {
+          description: e instanceof Error ? e.message : undefined,
+        });
         return false;
       }
     },
-    [showToast]
+    [toast]
   );
 
   return {
     works,
     loading,
     error,
-    toast,
-    dismissToast,
     refetch: fetchAll,
     create,
     update,

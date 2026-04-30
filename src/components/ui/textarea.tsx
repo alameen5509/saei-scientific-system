@@ -12,6 +12,7 @@ const Textarea = React.forwardRef<
       "placeholder:text-stone-400",
       "focus-visible:outline-none focus-visible:border-saei-purple focus-visible:ring-2 focus-visible:ring-saei-purple/20",
       "disabled:cursor-not-allowed disabled:opacity-50 resize-y",
+      "aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus-visible:border-red-500 aria-[invalid=true]:focus-visible:ring-red-200",
       className
     )}
     {...props}

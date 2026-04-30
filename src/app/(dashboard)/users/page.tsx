@@ -1,7 +1,7 @@
 "use client";
 
-// صفحة إدارة المستخدمين — متاحة لـADMIN فقط (محمية بـmiddleware + API)
-import { useCallback, useEffect, useState } from "react";
+// صفحة إدارة المستخدمين — sortable table + AlertDialog + skeleton + empty
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
   Plus,
@@ -10,6 +10,8 @@ import {
   RefreshCw,
   AlertTriangle,
   ShieldCheck,
+  Users as UsersIcon,
+  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,47 +23,45 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ConfirmDialog } from "@/components/ui/alert-dialog";
 import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Toast } from "@/components/works/Toast";
-import { UserDialog, type UserRow, type UserFormValues } from "@/components/users/UserDialog";
+  SortableHeader,
+  toggleSort,
+  type SortState,
+} from "@/components/ui/sortable-header";
+import { useToast } from "@/components/ui/toast";
+import {
+  UserDialog,
+  type UserRow,
+  type UserFormValues,
+} from "@/components/users/UserDialog";
 import { ROLE_LABEL, ROLE_TONE } from "@/lib/rbac";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
-interface ToastState {
-  id: number;
-  type: "success" | "error";
-  text: string;
-}
+type SortKey = "name" | "email" | "role" | "createdAt";
 
 export default function UsersPage() {
   const { data: session } = useSession();
   const me = session?.user;
+  const toast = useToast();
 
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<ToastState | null>(null);
+
+  const [sort, setSort] = useState<SortState<SortKey> | null>({
+    key: "createdAt",
+    direction: "desc",
+  });
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<UserRow | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const showToast = useCallback(
-    (type: "success" | "error", text: string) =>
-      setToast({ id: Date.now(), type, text }),
-    []
-  );
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(t);
-  }, [toast]);
+  const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const refetch = useCallback(async () => {
     setLoading(true);
@@ -83,6 +83,29 @@ export default function UsersPage() {
     void refetch();
   }, [refetch]);
 
+  const sorted = useMemo(() => {
+    if (!sort) return users;
+    const f = sort.direction === "asc" ? 1 : -1;
+    const arr = [...users];
+    arr.sort((a, b) => {
+      switch (sort.key) {
+        case "name":
+          return ((a.name ?? "").localeCompare(b.name ?? "", "ar")) * f;
+        case "email":
+          return a.email.localeCompare(b.email) * f;
+        case "role":
+          return a.role.localeCompare(b.role) * f;
+        case "createdAt":
+          return a.createdAt.localeCompare(b.createdAt) * f;
+      }
+    });
+    return arr;
+  }, [users, sort]);
+
+  function handleSort(key: SortKey) {
+    setSort((p) => toggleSort(p, key, key === "createdAt" ? "desc" : "asc"));
+  }
+
   function openAdd() {
     setEditing(null);
     setDialogOpen(true);
@@ -98,7 +121,6 @@ export default function UsersPage() {
     try {
       const url = editing ? `/api/users/${editing.id}` : "/api/users";
       const method = editing ? "PUT" : "POST";
-      // عند التعديل لا نرسل password إن كان فارغاً
       const body =
         editing && values.password.length === 0
           ? { name: values.name, email: values.email, role: values.role }
@@ -116,50 +138,67 @@ export default function UsersPage() {
       const u = json.user as UserRow;
       if (editing) {
         setUsers((all) => all.map((x) => (x.id === u.id ? u : x)));
-        showToast("success", "تمّ حفظ التغييرات");
+        toast.success("تمّ حفظ التغييرات");
       } else {
         setUsers((all) => [u, ...all]);
-        showToast("success", `تمّت إضافة "${u.name ?? u.email}"`);
+        toast.success("تمّت إضافة الحساب", {
+          description: u.name ?? u.email,
+        });
       }
       setDialogOpen(false);
     } catch (e) {
-      showToast("error", e instanceof Error ? e.message : "خطأ غير متوقع");
+      toast.error("فشلت العملية", {
+        description: e instanceof Error ? e.message : undefined,
+      });
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function handleDelete(u: UserRow) {
-    if (!confirm(`هل تريد حذف الحساب "${u.name ?? u.email}"؟`)) return;
+  function requestDelete(u: UserRow) {
+    setDeleteTarget(u);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
     const previous = users;
-    setUsers((all) => all.filter((x) => x.id !== u.id));
+    setUsers((all) => all.filter((x) => x.id !== deleteTarget.id));
     try {
-      const res = await fetch(`/api/users/${u.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/users/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "فشل الحذف");
-      showToast("success", "تمّ الحذف");
+      toast.success("تمّ حذف الحساب", {
+        description: deleteTarget.name ?? deleteTarget.email,
+      });
+      setDeleteTarget(null);
     } catch (e) {
       setUsers(previous);
-      showToast("error", e instanceof Error ? e.message : "خطأ");
+      toast.error("تعذّر الحذف", {
+        description: e instanceof Error ? e.message : undefined,
+      });
+    } finally {
+      setDeleting(false);
     }
   }
 
   // ————— حالة الخطأ المحظورة —————
   if (error && users.length === 0) {
     return (
-      <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center space-y-4">
-        <AlertTriangle className="h-10 w-10 text-red-600 mx-auto" />
-        <div>
-          <h2 className="text-lg font-extrabold text-red-800 mb-1">
-            تعذّر تحميل المستخدمين
-          </h2>
-          <p className="text-sm text-red-700">{error}</p>
-        </div>
-        <Button variant="primary" onClick={() => void refetch()}>
-          <RefreshCw className="h-4 w-4" />
-          إعادة المحاولة
-        </Button>
-      </div>
+      <EmptyState
+        icon={AlertTriangle}
+        title="تعذّر تحميل المستخدمين"
+        description={error}
+        action={
+          <Button variant="primary" onClick={() => void refetch()}>
+            <RefreshCw className="h-4 w-4" />
+            إعادة المحاولة
+          </Button>
+        }
+        className="border-red-200 bg-red-50/30"
+      />
     );
   }
 
@@ -183,7 +222,9 @@ export default function UsersPage() {
             onClick={() => void refetch()}
             disabled={loading}
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+            />
             تحديث
           </Button>
           <Button variant="primary" onClick={openAdd}>
@@ -203,90 +244,192 @@ export default function UsersPage() {
         </div>
       )}
 
+      {/* المحتوى */}
       {loading && users.length === 0 ? (
-        <Card>
-          <CardHeader className="text-center py-12">
-            <CardTitle className="text-saei-purple-300 animate-pulse">
-              جاري التحميل…
-            </CardTitle>
-          </CardHeader>
-        </Card>
-      ) : users.length === 0 ? (
-        <Card>
-          <CardHeader className="text-center py-12">
-            <CardTitle>لا يوجد مستخدمون</CardTitle>
-            <CardDescription>أضف أول مستخدم بالضغط على الزر أعلاه</CardDescription>
-          </CardHeader>
-        </Card>
+        <UsersTableSkeleton />
+      ) : sorted.length === 0 ? (
+        <EmptyState
+          icon={UsersIcon}
+          title="لا يوجد مستخدمون بعد"
+          description="ابدأ بإضافة أول حساب لتفعيل النظام."
+          action={
+            <Button variant="primary" onClick={openAdd}>
+              <Plus className="h-4 w-4" />
+              مستخدم جديد
+            </Button>
+          }
+          variant="subtle"
+        />
       ) : (
-        <div className="rounded-2xl border border-saei-purple-100 bg-white overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>الاسم</TableHead>
-                <TableHead>البريد الإلكتروني</TableHead>
-                <TableHead>الدور</TableHead>
-                <TableHead>تاريخ الإنشاء</TableHead>
-                <TableHead className="w-32">الإجراءات</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((u) => {
-                const isMe = me?.id === u.id;
-                return (
-                  <TableRow key={u.id}>
-                    <TableCell>
-                      <div className="font-bold text-saei-purple-700">
-                        {u.name ?? "—"}
-                        {isMe && (
-                          <Badge variant="gold" className="me-2">
-                            أنت
-                          </Badge>
-                        )}
+        <>
+          {/* جدول للكمبيوتر */}
+          <div className="hidden md:block rounded-2xl border border-saei-purple-100 bg-white overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>
+                    <SortableHeader<SortKey>
+                      label="الاسم"
+                      sortKey="name"
+                      current={sort}
+                      onSort={handleSort}
+                    />
+                  </TableHead>
+                  <TableHead>
+                    <SortableHeader<SortKey>
+                      label="البريد الإلكتروني"
+                      sortKey="email"
+                      current={sort}
+                      onSort={handleSort}
+                    />
+                  </TableHead>
+                  <TableHead>
+                    <SortableHeader<SortKey>
+                      label="الدور"
+                      sortKey="role"
+                      current={sort}
+                      onSort={handleSort}
+                    />
+                  </TableHead>
+                  <TableHead>
+                    <SortableHeader<SortKey>
+                      label="تاريخ الإنشاء"
+                      sortKey="createdAt"
+                      current={sort}
+                      onSort={handleSort}
+                    />
+                  </TableHead>
+                  <TableHead className="w-32">الإجراءات</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sorted.map((u) => {
+                  const isMe = me?.id === u.id;
+                  return (
+                    <TableRow key={u.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2 font-bold text-saei-purple-700">
+                          {u.name ?? "—"}
+                          {isMe && (
+                            <Badge variant="gold" className="me-1">
+                              أنت
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="ltr text-left text-sm text-stone-700">
+                          {u.email}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={ROLE_TONE[u.role]}>
+                          {ROLE_LABEL[u.role]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-stone-600 whitespace-nowrap">
+                        {formatDate(u.createdAt)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEdit(u)}
+                            aria-label="تعديل"
+                            className="h-8 w-8"
+                          >
+                            <Pencil className="h-4 w-4 text-saei-purple-500" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => requestDelete(u)}
+                            aria-label="حذف"
+                            disabled={isMe}
+                            title={isMe ? "لا يمكن حذف حسابك الشخصي" : "حذف"}
+                            className="h-8 w-8"
+                          >
+                            <Trash2
+                              className={cn(
+                                "h-4 w-4",
+                                isMe ? "text-stone-300" : "text-red-600"
+                              )}
+                            />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* بطاقات للجوال */}
+          <div className="md:hidden space-y-3">
+            {sorted.map((u) => {
+              const isMe = me?.id === u.id;
+              return (
+                <div
+                  key={u.id}
+                  className="rounded-2xl border border-saei-purple-100 bg-white p-4 space-y-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="h-12 w-12 rounded-2xl bg-saei-purple-100 grid place-items-center text-saei-purple-700 font-extrabold text-lg shrink-0">
+                      {(u.name ?? u.email).charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-saei-purple-700 truncate">
+                          {u.name ?? "—"}
+                        </span>
+                        {isMe && <Badge variant="gold">أنت</Badge>}
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="ltr text-left text-sm text-stone-700">
-                        {u.email}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={ROLE_TONE[u.role]}>
-                        {ROLE_LABEL[u.role]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-stone-600 whitespace-nowrap">
-                      {formatDate(u.createdAt)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEdit(u)}
-                          aria-label="تعديل"
-                          className="h-8 w-8"
-                        >
-                          <Pencil className="h-4 w-4 text-saei-purple-500" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => void handleDelete(u)}
-                          aria-label="حذف"
-                          disabled={isMe}
-                          className="h-8 w-8"
-                        >
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </Button>
+                      <div className="flex items-center gap-1.5 text-xs text-stone-600 mt-0.5 ltr text-left">
+                        <Mail className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{u.email}</span>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant={ROLE_TONE[u.role]}>
+                          {ROLE_LABEL[u.role]}
+                        </Badge>
+                        <span className="text-xs text-stone-500">
+                          {formatDate(u.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2 border-t border-saei-purple-100">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => openEdit(u)}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      تعديل
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => requestDelete(u)}
+                      disabled={isMe}
+                      className={cn(
+                        "flex-1",
+                        !isMe && "text-red-700 hover:bg-red-50"
+                      )}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      حذف
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       <UserDialog
@@ -297,13 +440,73 @@ export default function UsersPage() {
         onSubmit={handleSubmit}
       />
 
-      {toast && (
-        <Toast
-          type={toast.type}
-          text={toast.text}
-          onClose={() => setToast(null)}
-        />
-      )}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        variant="danger"
+        title="حذف حساب مستخدم"
+        description={
+          deleteTarget && (
+            <>
+              هل أنت متأكد من حذف الحساب{" "}
+              <strong className="text-saei-purple-700">
+                «{deleteTarget.name ?? deleteTarget.email}»
+              </strong>
+              ؟ لن يتمكن صاحبه من الدخول بعدها.
+            </>
+          )
+        }
+        confirmLabel="حذف الحساب"
+        loading={deleting}
+        onOpenChange={(v) => !deleting && !v && setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+      />
     </div>
+  );
+}
+
+// ————————————————————————————————
+// Skeleton مخصّص لجدول المستخدمين
+// ————————————————————————————————
+
+function UsersTableSkeleton() {
+  return (
+    <>
+      <div className="hidden md:block rounded-2xl border border-saei-purple-100 bg-white overflow-hidden">
+        <div className="h-12 bg-saei-purple-50/60 border-b border-saei-purple-100 flex items-center px-4 gap-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} className="h-3 w-24 first:flex-1" />
+          ))}
+        </div>
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div
+            key={i}
+            className="h-16 border-t border-saei-purple-100/50 px-4 flex items-center gap-4"
+          >
+            <Skeleton className="h-4 flex-1" />
+            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-6 w-24 rounded-full" />
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-8 w-20" />
+          </div>
+        ))}
+      </div>
+      <div className="md:hidden space-y-3">
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="rounded-2xl border border-saei-purple-100 bg-white p-4 space-y-3"
+          >
+            <div className="flex items-start gap-3">
+              <Skeleton className="h-12 w-12 rounded-2xl" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-48" />
+                <Skeleton className="h-5 w-24 rounded-full" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }

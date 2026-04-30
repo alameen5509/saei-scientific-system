@@ -1,7 +1,8 @@
 "use client";
 
-// نافذة إضافة/تعديل عمل علمي + نافذة عرض التفاصيل
-import { useEffect, useState } from "react";
+// نوافذ إضافة/تعديل + عرض تفاصيل عمل علمي
+// — validation real-time لكل حقل + رسائل خطأ تحت الحقل
+import { useEffect, useMemo, useState } from "react";
 import { Save } from "lucide-react";
 import {
   Dialog,
@@ -15,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { FormField } from "@/components/ui/form-field";
 import {
   Select,
   SelectContent,
@@ -38,7 +40,7 @@ import {
 import { formatDate, toArabicDigits } from "@/lib/utils";
 
 // ————————————————————————————————
-// Form: إضافة/تعديل
+// نموذج البيانات والتحقق
 // ————————————————————————————————
 
 export interface WorkFormValues {
@@ -67,6 +69,27 @@ const EMPTY: WorkFormValues = {
   notes: "",
 };
 
+type Errors = Partial<Record<keyof WorkFormValues, string>>;
+
+function validate(v: WorkFormValues): Errors {
+  const e: Errors = {};
+  if (!v.title.trim()) e.title = "عنوان العمل مطلوب";
+  else if (v.title.trim().length < 5)
+    e.title = "العنوان قصير جداً (٥ أحرف على الأقل)";
+  if (!v.researcher.trim()) e.researcher = "اسم الباحث مطلوب";
+  else if (v.researcher.trim().length < 3) e.researcher = "اسم قصير جداً";
+  if (!v.deadline) e.deadline = "الموعد النهائي مطلوب";
+  if (v.startedAt && v.deadline && v.startedAt > v.deadline)
+    e.deadline = "الموعد النهائي يجب أن يكون بعد تاريخ البدء";
+  if (v.progress < 0 || v.progress > 100)
+    e.progress = "نسبة التقدم بين ٠ و ١٠٠";
+  return e;
+}
+
+// ————————————————————————————————
+// نافذة الإضافة/التعديل
+// ————————————————————————————————
+
 interface FormDialogProps {
   open: boolean;
   initial?: ScientificWork | null;
@@ -84,11 +107,15 @@ export function WorkFormDialog({
 }: FormDialogProps) {
   const isEdit = !!initial;
   const [values, setValues] = useState<WorkFormValues>(EMPTY);
-  const [error, setError] = useState<string | null>(null);
+  const [touched, setTouched] = useState<Set<keyof WorkFormValues>>(
+    new Set()
+  );
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setError(null);
+      setTouched(new Set());
+      setSubmitAttempted(false);
       setValues(
         initial
           ? {
@@ -108,16 +135,25 @@ export function WorkFormDialog({
     }
   }, [open, initial]);
 
+  const errors = useMemo(() => validate(values), [values]);
+  const isValid = Object.keys(errors).length === 0;
+
+  // أظهر الخطأ بعد لمس الحقل أو عند محاولة الإرسال
+  const errorOf = (k: keyof WorkFormValues): string | null =>
+    submitAttempted || touched.has(k) ? errors[k] ?? null : null;
+
   const update = <K extends keyof WorkFormValues>(
     k: K,
     v: WorkFormValues[K]
   ) => setValues((old) => ({ ...old, [k]: v }));
 
+  const blur = (k: keyof WorkFormValues) =>
+    setTouched((s) => new Set(s).add(k));
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!values.title.trim()) return setError("يجب إدخال عنوان العمل");
-    if (!values.researcher.trim()) return setError("يجب تحديد الباحث");
-    if (!values.deadline) return setError("يجب تحديد الموعد النهائي");
+    setSubmitAttempted(true);
+    if (!isValid) return;
     onSubmit(values);
   }
 
@@ -135,40 +171,55 @@ export function WorkFormDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2" noValidate>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="w-title">عنوان العمل *</Label>
-              <Input
-                id="w-title"
-                value={values.title}
-                onChange={(e) => update("title", e.target.value)}
-                placeholder="مثال: تحقيق كتاب المستصفى"
-                required
-              />
-            </div>
+            <FormField
+              label="عنوان العمل"
+              required
+              error={errorOf("title")}
+              className="sm:col-span-2"
+            >
+              {(p) => (
+                <Input
+                  {...p}
+                  value={values.title}
+                  onChange={(e) => update("title", e.target.value)}
+                  onBlur={() => blur("title")}
+                  placeholder="مثال: تحقيق كتاب المستصفى"
+                />
+              )}
+            </FormField>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="w-code">الرمز</Label>
-              <Input
-                id="w-code"
-                value={values.code}
-                onChange={(e) => update("code", e.target.value)}
-                placeholder="SAEI-2024-XXX"
-                className="ltr text-left"
-              />
-            </div>
+            <FormField
+              label="الرمز"
+              hint="يُولَّد تلقائياً إن تُرك فارغاً"
+            >
+              {(p) => (
+                <Input
+                  {...p}
+                  value={values.code}
+                  onChange={(e) => update("code", e.target.value)}
+                  placeholder="SAEI-2024-XXX"
+                  className="ltr text-left"
+                />
+              )}
+            </FormField>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="w-researcher">الباحث *</Label>
-              <Input
-                id="w-researcher"
-                value={values.researcher}
-                onChange={(e) => update("researcher", e.target.value)}
-                placeholder="د. عبدالله السالم"
-                required
-              />
-            </div>
+            <FormField
+              label="الباحث"
+              required
+              error={errorOf("researcher")}
+            >
+              {(p) => (
+                <Input
+                  {...p}
+                  value={values.researcher}
+                  onChange={(e) => update("researcher", e.target.value)}
+                  onBlur={() => blur("researcher")}
+                  placeholder="د. عبدالله السالم"
+                />
+              )}
+            </FormField>
 
             <div className="space-y-1.5">
               <Label>التخصص</Label>
@@ -247,49 +298,54 @@ export function WorkFormDialog({
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="w-start">تاريخ البدء</Label>
-              <Input
-                id="w-start"
-                type="date"
-                value={values.startedAt}
-                onChange={(e) => update("startedAt", e.target.value)}
-                className="ltr text-left"
-              />
-            </div>
+            <FormField label="تاريخ البدء">
+              {(p) => (
+                <Input
+                  {...p}
+                  type="date"
+                  value={values.startedAt}
+                  onChange={(e) => update("startedAt", e.target.value)}
+                  className="ltr text-left"
+                />
+              )}
+            </FormField>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="w-deadline">الموعد النهائي *</Label>
-              <Input
-                id="w-deadline"
-                type="date"
-                value={values.deadline}
-                onChange={(e) => update("deadline", e.target.value)}
-                className="ltr text-left"
-                required
-              />
-            </div>
+            <FormField
+              label="الموعد النهائي"
+              required
+              error={errorOf("deadline")}
+            >
+              {(p) => (
+                <Input
+                  {...p}
+                  type="date"
+                  value={values.deadline}
+                  onChange={(e) => update("deadline", e.target.value)}
+                  onBlur={() => blur("deadline")}
+                  className="ltr text-left"
+                />
+              )}
+            </FormField>
 
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="w-notes">ملاحظات</Label>
-              <Textarea
-                id="w-notes"
-                value={values.notes}
-                onChange={(e) => update("notes", e.target.value)}
-                placeholder="أي ملاحظات خاصة بالعمل..."
-                rows={3}
-              />
-            </div>
+            <FormField label="ملاحظات" className="sm:col-span-2">
+              {(p) => (
+                <Textarea
+                  {...p}
+                  value={values.notes}
+                  onChange={(e) => update("notes", e.target.value)}
+                  placeholder="أي ملاحظات خاصة بالعمل..."
+                  rows={3}
+                />
+              )}
+            </FormField>
           </div>
 
-          {error && (
-            <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-
           <DialogFooter className="gap-2">
-            <Button type="submit" variant="primary" disabled={submitting}>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={submitting || (submitAttempted && !isValid)}
+            >
               <Save className="h-4 w-4" />
               {submitting
                 ? "جاري الحفظ..."
@@ -313,7 +369,7 @@ export function WorkFormDialog({
 }
 
 // ————————————————————————————————
-// Dialog: عرض التفاصيل (read-only)
+// نافذة عرض التفاصيل
 // ————————————————————————————————
 
 interface ViewDialogProps {

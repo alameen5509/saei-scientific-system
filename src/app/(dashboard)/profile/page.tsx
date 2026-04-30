@@ -1,7 +1,8 @@
 "use client";
 
 // صفحة الملف الشخصي — تعديل الاسم/البريد + تغيير كلمة المرور
-import { useCallback, useEffect, useState } from "react";
+// مع validation حيّ + skeleton + useToast العام
+import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Save, UserCog, KeyRound } from "lucide-react";
 import {
@@ -13,9 +14,10 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Toast } from "@/components/works/Toast";
+import { Skeleton } from "@/components/ui/skeleton";
+import { FormField } from "@/components/ui/form-field";
+import { useToast } from "@/components/ui/toast";
 import { ROLE_LABEL, ROLE_TONE } from "@/lib/rbac";
 import { formatDate } from "@/lib/utils";
 import type { UserRole } from "@/types";
@@ -28,14 +30,9 @@ interface Profile {
   createdAt: string;
 }
 
-interface ToastState {
-  id: number;
-  type: "success" | "error";
-  text: string;
-}
-
 export default function ProfilePage() {
   const { update: updateSession } = useSession();
+  const toast = useToast();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,27 +42,43 @@ export default function ProfilePage() {
   // قسم البيانات
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [profileError, setProfileError] = useState<string | null>(null);
+  const [touchedProfile, setTouchedProfile] = useState<Set<string>>(new Set());
+  const [profileSubmitAttempt, setProfileSubmitAttempt] = useState(false);
 
   // قسم كلمة المرور
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [touchedPw, setTouchedPw] = useState<Set<string>>(new Set());
+  const [pwSubmitAttempt, setPwSubmitAttempt] = useState(false);
 
-  const [toast, setToast] = useState<ToastState | null>(null);
+  // ————— validation —————
+  const profileErrors = useMemo(() => {
+    const e: Record<string, string> = {};
+    if (name.trim().length < 2) e.name = "الاسم قصير جداً";
+    if (!email.includes("@") || !email.includes("."))
+      e.email = "البريد الإلكتروني غير صحيح";
+    return e;
+  }, [name, email]);
 
-  const showToast = useCallback(
-    (type: "success" | "error", text: string) =>
-      setToast({ id: Date.now(), type, text }),
-    []
-  );
+  const pwErrors = useMemo(() => {
+    const e: Record<string, string> = {};
+    if (!currentPassword) e.currentPassword = "أدخل كلمة المرور الحالية";
+    if (newPassword.length < 8)
+      e.newPassword = "الكلمة الجديدة يجب ألا تقل عن ٨ أحرف";
+    if (newPassword && confirmPassword && newPassword !== confirmPassword)
+      e.confirmPassword = "تأكيد كلمة المرور لا يطابق";
+    return e;
+  }, [currentPassword, newPassword, confirmPassword]);
 
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(t);
-  }, [toast]);
+  const profileError = (k: string): string | null => {
+    if (!profileSubmitAttempt && !touchedProfile.has(k)) return null;
+    return profileErrors[k] ?? null;
+  };
+  const pwError = (k: string): string | null => {
+    if (!pwSubmitAttempt && !touchedPw.has(k)) return null;
+    return pwErrors[k] ?? null;
+  };
 
   // جلب الملف
   useEffect(() => {
@@ -83,7 +96,9 @@ export default function ProfilePage() {
         setEmail(p.email);
       } catch (e) {
         if (alive)
-          showToast("error", e instanceof Error ? e.message : "خطأ");
+          toast.error("تعذّر تحميل الملف", {
+            description: e instanceof Error ? e.message : undefined,
+          });
       } finally {
         if (alive) setLoading(false);
       }
@@ -91,13 +106,12 @@ export default function ProfilePage() {
     return () => {
       alive = false;
     };
-  }, [showToast]);
+  }, [toast]);
 
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
-    setProfileError(null);
-    if (name.trim().length < 2) return setProfileError("الاسم قصير جداً");
-    if (!email.includes("@")) return setProfileError("البريد غير صحيح");
+    setProfileSubmitAttempt(true);
+    if (Object.keys(profileErrors).length > 0) return;
 
     setSavingProfile(true);
     try {
@@ -111,11 +125,12 @@ export default function ProfilePage() {
         throw new Error(json.error || "فشل التحديث");
       const p = json.profile as Profile;
       setProfile(p);
-      // تحديث الجلسة فوراً ليُعكس الاسم الجديد في Header
       await updateSession({ name: p.name, email: p.email });
-      showToast("success", "تمّ تحديث ملفك الشخصي");
-    } catch (e) {
-      setProfileError(e instanceof Error ? e.message : "خطأ غير متوقع");
+      toast.success("تمّ تحديث ملفك الشخصي");
+    } catch (err) {
+      toast.error("تعذّر التحديث", {
+        description: err instanceof Error ? err.message : undefined,
+      });
     } finally {
       setSavingProfile(false);
     }
@@ -123,12 +138,8 @@ export default function ProfilePage() {
 
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
-    setPasswordError(null);
-    if (!currentPassword) return setPasswordError("أدخل كلمة المرور الحالية");
-    if (newPassword.length < 8)
-      return setPasswordError("الكلمة الجديدة يجب ألا تقل عن ٨ أحرف");
-    if (newPassword !== confirmPassword)
-      return setPasswordError("تأكيد كلمة المرور لا يطابق");
+    setPwSubmitAttempt(true);
+    if (Object.keys(pwErrors).length > 0) return;
 
     setSavingPassword(true);
     try {
@@ -143,9 +154,15 @@ export default function ProfilePage() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      showToast("success", "تمّ تغيير كلمة المرور");
-    } catch (e) {
-      setPasswordError(e instanceof Error ? e.message : "خطأ غير متوقع");
+      setTouchedPw(new Set());
+      setPwSubmitAttempt(false);
+      toast.success("تمّ تغيير كلمة المرور", {
+        description: "ستحتاج إلى استخدام الكلمة الجديدة عند الدخول التالي",
+      });
+    } catch (err) {
+      toast.error("فشل تغيير كلمة المرور", {
+        description: err instanceof Error ? err.message : undefined,
+      });
     } finally {
       setSavingPassword(false);
     }
@@ -153,13 +170,41 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader className="text-center py-12">
-          <CardTitle className="text-saei-purple-300 animate-pulse">
-            جاري التحميل…
-          </CardTitle>
-        </CardHeader>
-      </Card>
+      <div className="space-y-6 max-w-3xl">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <Card>
+          <CardHeader className="flex-row items-center gap-4">
+            <Skeleton className="h-16 w-16 rounded-2xl" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-5 w-48" />
+              <Skeleton className="h-4 w-56" />
+              <Skeleton className="h-5 w-24 rounded-full" />
+            </div>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-4 w-48" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-11 rounded-xl" />
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-11 rounded-xl" />
+              </div>
+            </div>
+            <Skeleton className="h-11 w-32 rounded-xl" />
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -175,7 +220,6 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      {/* رأس الصفحة + ملخّص */}
       <div>
         <h1 className="text-2xl md:text-3xl font-extrabold text-saei-purple-700 mb-1 flex items-center gap-2">
           <UserCog className="h-7 w-7" />
@@ -191,12 +235,12 @@ export default function ProfilePage() {
           <div className="h-16 w-16 rounded-2xl bg-saei-purple text-white grid place-items-center font-extrabold text-2xl shadow-saei-sm">
             {(profile.name ?? profile.email).charAt(0)}
           </div>
-          <div className="flex-1">
-            <CardTitle>{profile.name ?? "—"}</CardTitle>
-            <CardDescription className="ltr text-left">
+          <div className="flex-1 min-w-0">
+            <CardTitle className="truncate">{profile.name ?? "—"}</CardTitle>
+            <CardDescription className="ltr text-left truncate">
               {profile.email}
             </CardDescription>
-            <div className="flex items-center gap-2 mt-2">
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
               <Badge variant={ROLE_TONE[profile.role]}>
                 {ROLE_LABEL[profile.role]}
               </Badge>
@@ -215,37 +259,59 @@ export default function ProfilePage() {
           <CardDescription>الاسم والبريد الإلكتروني</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSaveProfile} className="space-y-4">
+          <form
+            onSubmit={handleSaveProfile}
+            className="space-y-4"
+            noValidate
+          >
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="p-name">الاسم الكامل</Label>
-                <Input
-                  id="p-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="p-email">البريد الإلكتروني</Label>
-                <Input
-                  id="p-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="ltr text-left"
-                  required
-                />
-              </div>
+              <FormField
+                label="الاسم الكامل"
+                required
+                error={profileError("name")}
+              >
+                {(p) => (
+                  <Input
+                    {...p}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    onBlur={() =>
+                      setTouchedProfile((s) => new Set(s).add("name"))
+                    }
+                    autoComplete="name"
+                  />
+                )}
+              </FormField>
+              <FormField
+                label="البريد الإلكتروني"
+                required
+                error={profileError("email")}
+              >
+                {(p) => (
+                  <Input
+                    {...p}
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onBlur={() =>
+                      setTouchedProfile((s) => new Set(s).add("email"))
+                    }
+                    className="ltr text-left"
+                    autoComplete="email"
+                  />
+                )}
+              </FormField>
             </div>
 
-            {profileError && (
-              <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700">
-                {profileError}
-              </div>
-            )}
-
-            <Button type="submit" variant="primary" disabled={savingProfile}>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={
+                savingProfile ||
+                (profileSubmitAttempt &&
+                  Object.keys(profileErrors).length > 0)
+              }
+            >
               <Save className="h-4 w-4" />
               {savingProfile ? "جاري الحفظ..." : "حفظ التغييرات"}
             </Button>
@@ -265,55 +331,77 @@ export default function ProfilePage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleChangePassword} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="p-cur">كلمة المرور الحالية</Label>
-              <Input
-                id="p-cur"
-                type="password"
-                autoComplete="current-password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                required
-              />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="p-new">كلمة المرور الجديدة</Label>
+          <form
+            onSubmit={handleChangePassword}
+            className="space-y-4"
+            noValidate
+          >
+            <FormField
+              label="كلمة المرور الحالية"
+              required
+              error={pwError("currentPassword")}
+            >
+              {(p) => (
                 <Input
-                  id="p-new"
+                  {...p}
                   type="password"
-                  autoComplete="new-password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  minLength={8}
-                  required
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  onBlur={() =>
+                    setTouchedPw((s) => new Set(s).add("currentPassword"))
+                  }
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="p-conf">تأكيد كلمة المرور</Label>
-                <Input
-                  id="p-conf"
-                  type="password"
-                  autoComplete="new-password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  minLength={8}
-                  required
-                />
-              </div>
-            </div>
+              )}
+            </FormField>
 
-            {passwordError && (
-              <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700">
-                {passwordError}
-              </div>
-            )}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                label="كلمة المرور الجديدة"
+                required
+                error={pwError("newPassword")}
+                hint="٨ أحرف على الأقل"
+              >
+                {(p) => (
+                  <Input
+                    {...p}
+                    type="password"
+                    autoComplete="new-password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    onBlur={() =>
+                      setTouchedPw((s) => new Set(s).add("newPassword"))
+                    }
+                  />
+                )}
+              </FormField>
+              <FormField
+                label="تأكيد كلمة المرور"
+                required
+                error={pwError("confirmPassword")}
+              >
+                {(p) => (
+                  <Input
+                    {...p}
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onBlur={() =>
+                      setTouchedPw((s) => new Set(s).add("confirmPassword"))
+                    }
+                  />
+                )}
+              </FormField>
+            </div>
 
             <Button
               type="submit"
               variant="primary"
-              disabled={savingPassword}
+              disabled={
+                savingPassword ||
+                (pwSubmitAttempt && Object.keys(pwErrors).length > 0)
+              }
             >
               <KeyRound className="h-4 w-4" />
               {savingPassword ? "جاري التغيير..." : "تغيير كلمة المرور"}
@@ -321,14 +409,6 @@ export default function ProfilePage() {
           </form>
         </CardContent>
       </Card>
-
-      {toast && (
-        <Toast
-          type={toast.type}
-          text={toast.text}
-          onClose={() => setToast(null)}
-        />
-      )}
     </div>
   );
 }
