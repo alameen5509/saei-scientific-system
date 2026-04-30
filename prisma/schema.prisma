@@ -33,10 +33,11 @@ model User {
 }
 
 enum UserRole {
-  ADMIN
-  MANAGER
-  RESEARCHER
-  REVIEWER
+  ADMIN                  // مدير النظام
+  RESEARCH_COORDINATOR   // منسق الأبحاث
+  JOURNAL_COORDINATOR    // منسق المجلة
+  RESEARCHER             // باحث
+  REVIEWER               // محكم
 }
 
 // ============================================================

@@ -1,9 +1,11 @@
-// سكربت بذرة قاعدة البيانات — يُملأ بـSAMPLE_WORKS من src/lib/works-data.ts
-// تشغيل: npm run db:seed (يُعرَّف في package.json: prisma.seed = "tsx prisma/seed.ts")
-//
-// السكربت idempotent: يحذف البيانات الموجودة ثم يعيد الإدخال.
+// سكربت بذرة قاعدة البيانات
+// — مستخدمون لكل الأدوار الخمسة بكلمات سرّ مشفّرة (bcrypt)
+// — الباحثون مستخرَجون من SAMPLE_WORKS تلقائياً
+// — كل الأعمال العلمية + المراحل + هيئة المراجعة
+// تشغيل: npm run db:seed (idempotent)
 
 import "dotenv/config";
+import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { SAMPLE_WORKS } from "../src/lib/works-data";
@@ -14,12 +16,11 @@ const adapter = new PrismaPg({
 });
 const prisma = new PrismaClient({ adapter });
 
-// إزالة لقب العنوان للحصول على اسم أساسي مشترك
 const TITLE_REGEX = /^(أ\.د\.|د\.|أ\.)\s*/;
 const stripTitle = (s: string) => s.replace(TITLE_REGEX, "").trim();
 const extractTitle = (s: string) => s.match(TITLE_REGEX)?.[1] ?? null;
 
-// أسماء لاتينية بسيطة لتوليد بريد قابل للقراءة
+// أسماء لاتينية للبريد
 const SLUG_BY_NAME: Record<string, string> = {
   "عبدالله السالم": "abdullah.salem",
   "خالد الفهد": "khaled.fahd",
@@ -27,6 +28,13 @@ const SLUG_BY_NAME: Record<string, string> = {
   "منال القحطاني": "manal.qahtani",
   "محمد العتيبي": "mohammed.otaibi",
 };
+
+// كلمات سرّ افتراضية للحسابات التجريبية
+const DEFAULT_PASSWORD = "Saei@2026";
+
+async function hash(pw: string): Promise<string> {
+  return bcrypt.hash(pw, 10);
+}
 
 async function main() {
   console.log("🧹 تنظيف البيانات الحالية...");
@@ -50,32 +58,49 @@ async function main() {
     });
   }
 
-  // ————— مدير النظام —————
-  console.log("👤 إنشاء حساب المدير...");
+  // ————— مستخدمون تجريبيون لكل دور —————
+  console.log("👥 إنشاء حسابات الأدوار الإدارية...");
+  const adminPw = await hash(DEFAULT_PASSWORD);
+
   await prisma.user.create({
     data: {
       email: "admin@saei.local",
       name: "مدير النظام",
+      password: adminPw,
       role: "ADMIN",
     },
   });
 
-  // ————— الباحثون (تجميع فريد بالاسم بعد تجريد اللقب) —————
+  await prisma.user.create({
+    data: {
+      email: "research.coord@saei.local",
+      name: "منسق الأبحاث",
+      password: adminPw,
+      role: "RESEARCH_COORDINATOR",
+    },
+  });
+
+  await prisma.user.create({
+    data: {
+      email: "journal.coord@saei.local",
+      name: "منسق المجلة",
+      password: adminPw,
+      role: "JOURNAL_COORDINATOR",
+    },
+  });
+
+  // ————— الباحثون — جمع فريد + كلمة سر افتراضية + ربط بـResearcher —————
   console.log("🎓 إنشاء الباحثين...");
   const fullNameByBase = new Map<string, string>();
   for (const w of SAMPLE_WORKS) {
     const base = stripTitle(w.researcher);
-    // نأخذ أول لقب نراه (الأعلى عادة)
-    if (!fullNameByBase.has(base)) {
+    const existing = fullNameByBase.get(base);
+    if (!existing) {
       fullNameByBase.set(base, w.researcher);
     } else {
-      const existing = fullNameByBase.get(base)!;
-      const existingTitle = extractTitle(existing);
-      const newTitle = extractTitle(w.researcher);
-      // نفضّل أ.د. على د. على أ.
       const rank = (t: string | null) =>
         t === "أ.د." ? 3 : t === "د." ? 2 : t === "أ." ? 1 : 0;
-      if (rank(newTitle) > rank(existingTitle)) {
+      if (rank(extractTitle(w.researcher)) > rank(extractTitle(existing))) {
         fullNameByBase.set(base, w.researcher);
       }
     }
@@ -89,6 +114,7 @@ async function main() {
       data: {
         email: `${slug}@saei.local`,
         name: displayName,
+        password: adminPw,
         role: "RESEARCHER",
       },
     });
@@ -97,19 +123,19 @@ async function main() {
         userId: user.id,
         displayName,
         academicTitle: extractTitle(displayName),
-        specialty: null,
       },
     });
     researcherIdByBase.set(base, r.id);
     i++;
   }
 
-  // ————— مراجع علمي تجريبي —————
-  console.log("🧐 إنشاء هيئة المراجعة...");
+  // ————— محكم تجريبي + Reviewer profile —————
+  console.log("🧐 إنشاء حساب المحكم...");
   const reviewerUser = await prisma.user.create({
     data: {
       email: "reviewer@saei.local",
       name: "هيئة المراجعة العلمية",
+      password: adminPw,
       role: "REVIEWER",
     },
   });
@@ -125,10 +151,7 @@ async function main() {
   for (const w of SAMPLE_WORKS) {
     const base = stripTitle(w.researcher);
     const researcherId = researcherIdByBase.get(base);
-    if (!researcherId) {
-      console.warn(`⚠️  لم يُعثر على باحث للعمل ${w.code}: ${w.researcher}`);
-      continue;
-    }
+    if (!researcherId) continue;
     await prisma.scientificWork.create({
       data: {
         code: w.code,
@@ -148,8 +171,16 @@ async function main() {
   console.log(
     `\n✅ اكتمل: ${STAGE_ORDER.length} مراحل، ${
       researcherIdByBase.size
-    } باحثين، ${SAMPLE_WORKS.length} عملاً علمياً.`
+    } باحثين، ${SAMPLE_WORKS.length} عملاً، ${
+      3 + researcherIdByBase.size + 1
+    } مستخدماً.`
   );
+  console.log(`\n🔑 بيانات الدخول التجريبية (كلمة السرّ: ${DEFAULT_PASSWORD}):`);
+  console.log("   - admin@saei.local           (مدير النظام)");
+  console.log("   - research.coord@saei.local  (منسق الأبحاث)");
+  console.log("   - journal.coord@saei.local   (منسق المجلة)");
+  console.log("   - abdullah.salem@saei.local  (باحث)");
+  console.log("   - reviewer@saei.local        (محكم)");
 }
 
 main()

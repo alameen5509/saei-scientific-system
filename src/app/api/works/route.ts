@@ -2,6 +2,7 @@
 // POST /api/works — إضافة عمل جديد
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth, requireRole } from "@/lib/api-auth";
 import {
   findOrCreateResearcherByName,
   nextWorkCode,
@@ -13,6 +14,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const me = await requireAuth();
+  if (!me) {
+    return NextResponse.json(
+      { ok: false, error: "غير مصرّح" },
+      { status: 401 }
+    );
+  }
   try {
     const rows = await prisma.scientificWork.findMany({
       orderBy: { createdAt: "desc" },
@@ -32,6 +40,13 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const me = await requireRole("ADMIN", "RESEARCH_COORDINATOR", "JOURNAL_COORDINATOR");
+  if (!me) {
+    return NextResponse.json(
+      { ok: false, error: "غير مصرّح بالإنشاء" },
+      { status: 401 }
+    );
+  }
   try {
     const body = await req.json();
     const v = validateWorkInput(body);

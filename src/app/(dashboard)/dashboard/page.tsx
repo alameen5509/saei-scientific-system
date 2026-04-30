@@ -1,4 +1,5 @@
-// لوحة التحكم الرئيسية — KPIs + رسم بياني
+// لوحة التحكم الرئيسية — KPIs + رسم بياني + تنبيه الصلاحيات
+import { Suspense } from "react";
 import {
   FolderKanban,
   Users,
@@ -13,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ProjectsBarChart } from "@/components/charts/ProjectsBarChart";
+import { DeniedBanner } from "@/components/layout/DeniedBanner";
 import { toArabicDigits } from "@/lib/utils";
 
 const kpis = [
@@ -59,6 +61,10 @@ const chartData = [
 export default function DashboardPage() {
   return (
     <div className="space-y-6">
+      <Suspense fallback={null}>
+        <DeniedBanner />
+      </Suspense>
+
       <div>
         <h1 className="text-2xl md:text-3xl font-extrabold text-saei-purple-700 mb-1">
           لوحة التحكم

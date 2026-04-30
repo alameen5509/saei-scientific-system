@@ -3,6 +3,7 @@
 // DELETE /api/works/[id]  — حذف عمل
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth, requireRole } from "@/lib/api-auth";
 import {
   findOrCreateResearcherByName,
   serializeWork,
@@ -15,7 +16,13 @@ interface Params {
   params: { id: string };
 }
 
+const MANAGE_ROLES = ["ADMIN", "RESEARCH_COORDINATOR", "JOURNAL_COORDINATOR"] as const;
+
 export async function GET(_: Request, { params }: Params) {
+  const me = await requireAuth();
+  if (!me) {
+    return NextResponse.json({ ok: false, error: "غير مصرّح" }, { status: 401 });
+  }
   try {
     const work = await prisma.scientificWork.findUnique({
       where: { id: params.id },
@@ -38,6 +45,10 @@ export async function GET(_: Request, { params }: Params) {
 }
 
 export async function PUT(req: Request, { params }: Params) {
+  const me = await requireRole(...MANAGE_ROLES);
+  if (!me) {
+    return NextResponse.json({ ok: false, error: "غير مصرّح" }, { status: 401 });
+  }
   try {
     const exists = await prisma.scientificWork.findUnique({
       where: { id: params.id },
@@ -92,6 +103,10 @@ export async function PUT(req: Request, { params }: Params) {
 }
 
 export async function DELETE(_: Request, { params }: Params) {
+  const me = await requireRole(...MANAGE_ROLES);
+  if (!me) {
+    return NextResponse.json({ ok: false, error: "غير مصرّح" }, { status: 401 });
+  }
   try {
     await prisma.scientificWork.delete({ where: { id: params.id } });
     return NextResponse.json({ ok: true });

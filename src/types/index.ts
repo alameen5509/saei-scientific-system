@@ -1,7 +1,13 @@
 // أنواع مشتركة لنظام إدارة الأعمال العلمية
 import type { LucideIcon } from "lucide-react";
 
-export type UserRole = "ADMIN" | "MANAGER" | "RESEARCHER";
+// خمسة أدوار في نظام ساعي
+export type UserRole =
+  | "ADMIN" // مدير النظام
+  | "RESEARCH_COORDINATOR" // منسق الأبحاث
+  | "JOURNAL_COORDINATOR" // منسق المجلة
+  | "RESEARCHER" // باحث
+  | "REVIEWER"; // محكم
 
 export type ProjectStatus =
   | "PROPOSED"
@@ -20,27 +26,6 @@ export interface NavItem {
   label: string;
   icon: LucideIcon;
   badge?: number;
-}
-
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string;
-      email?: string | null;
-      name?: string | null;
-      image?: string | null;
-      role: UserRole;
-    };
-  }
-
-  interface User {
-    role?: UserRole;
-  }
-}
-
-declare module "next-auth/jwt" {
-  interface JWT {
-    id?: string;
-    role?: UserRole;
-  }
+  // الأدوار التي يُسمح لها برؤية هذا العنصر
+  roles?: UserRole[];
 }

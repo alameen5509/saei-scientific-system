@@ -1,10 +1,17 @@
-// إعدادات NextAuth v4 — تستخدم في app/api/auth/[...nextauth]/route.ts
-// مزود الاعتماد placeholder — سنفعّل قاعدة البيانات لاحقاً
+// إعدادات NextAuth v4 — مصادقة حقيقية مدعومة بـPrisma + bcrypt
+// يقرأ المستخدم من جدول User، يقارن كلمة السرّ بـbcrypt.compare
+// JWT يحمل id + role لاستخدامهما في الـmiddleware والـclient
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
+import type { UserRole } from "@/types";
 
 export const authOptions: NextAuthOptions = {
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+    maxAge: 60 * 60 * 24 * 7, // أسبوع
+  },
   pages: {
     signIn: "/login",
   },
@@ -16,40 +23,42 @@ export const authOptions: NextAuthOptions = {
         password: { label: "كلمة المرور", type: "password" },
       },
       async authorize(credentials) {
-        // TODO: ربط قاعدة البيانات والتحقق الفعلي
         if (!credentials?.email || !credentials?.password) return null;
 
-        // مثال مؤقت لاختبار التدفق فقط
-        if (
-          credentials.email === "admin@saei.local" &&
-          credentials.password === "saei-temp-password"
-        ) {
-          return {
-            id: "1",
-            email: "admin@saei.local",
-            name: "مدير ساعي",
-            role: "ADMIN",
-          };
-        }
-        return null;
+        const email = credentials.email.toLowerCase().trim();
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user || !user.password) return null;
+
+        const valid = await bcrypt.compare(credentials.password, user.password);
+        if (!valid) return null;
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+          role: user.role as UserRole,
+        };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        token.role = (user as any).role ?? "RESEARCHER";
+        token.role = (user as { role: UserRole }).role;
+      }
+      // تحديث الـtoken عند update() من العميل (ينعكس فوراً بعد تعديل الملف)
+      if (trigger === "update" && session) {
+        if (session.name) token.name = session.name;
+        if (session.email) token.email = session.email;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (session.user as any).id = token.id;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (session.user as any).role = token.role;
+        session.user.id = token.id as string;
+        session.user.role = token.role as UserRole;
       }
       return session;
     },

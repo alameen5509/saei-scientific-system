@@ -1,16 +1,15 @@
 "use client";
 
-// صفحة تسجيل الدخول للنظام الإداري
+// صفحة تسجيل الدخول — تستخدم NextAuth مع credentials فعلية
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { LogIn } from "lucide-react";
+import { LogIn, Info, AlertCircle } from "lucide-react";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -20,7 +19,7 @@ import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-saei-cream">
+    <div className="min-h-screen flex flex-col bg-gradient-to-bl from-saei-cream via-saei-cream to-saei-purple/5">
       <header className="container mx-auto px-4 py-6">
         <Link
           href="/"
@@ -38,16 +37,24 @@ export default function LoginPage() {
           <LoginForm />
         </Suspense>
       </main>
+
+      <footer className="container mx-auto px-4 py-6 text-center text-xs text-stone-500">
+        © {new Date().getFullYear()} مؤسسة ساعي — نظام إدارة الأعمال العلمية
+      </footer>
     </div>
   );
 }
 
 function LoginForm() {
   const router = useRouter();
+  const params = useSearchParams();
+  const callbackUrl = params.get("callbackUrl") ?? "/dashboard";
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -65,7 +72,7 @@ function LoginForm() {
       setError("البريد أو كلمة المرور غير صحيحة");
       return;
     }
-    router.push("/dashboard");
+    router.push(callbackUrl);
     router.refresh();
   }
 
@@ -77,7 +84,7 @@ function LoginForm() {
         </div>
         <CardTitle className="text-2xl">تسجيل الدخول</CardTitle>
         <CardDescription>
-          أدخل بيانات حسابك للوصول إلى النظام
+          أدخل بيانات حسابك للوصول إلى نظام إدارة الأعمال العلمية
         </CardDescription>
       </CardHeader>
 
@@ -93,6 +100,7 @@ function LoginForm() {
               placeholder="example@saei.local"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              className="ltr text-left"
             />
           </div>
 
@@ -110,8 +118,9 @@ function LoginForm() {
           </div>
 
           {error && (
-            <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700">
-              {error}
+            <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700 flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
           )}
 
@@ -124,11 +133,52 @@ function LoginForm() {
             {submitting ? "جاري الدخول..." : "تسجيل الدخول"}
           </Button>
         </form>
-      </CardContent>
 
-      <CardFooter className="justify-center text-xs text-stone-500">
-        تواصل مع المسؤول للحصول على بيانات الدخول
-      </CardFooter>
+        {/* لوحة بيانات الاختبار — تظهر بنقرة فقط لتجنّب فوضى الواجهة */}
+        <div className="mt-6 pt-4 border-t border-saei-purple-100">
+          <button
+            type="button"
+            onClick={() => setShowHelp((v) => !v)}
+            className="text-xs text-saei-purple-700 hover:text-saei-purple flex items-center gap-1.5 font-bold"
+          >
+            <Info className="h-3.5 w-3.5" />
+            بيانات اختبار النظام (بيئة التطوير)
+          </button>
+
+          {showHelp && (
+            <div className="mt-3 p-3 rounded-xl bg-saei-purple-50/60 border border-saei-purple-100 space-y-2 text-xs">
+              <p className="text-saei-purple-700 font-bold">
+                كلمة السرّ لجميع الحسابات:{" "}
+                <span className="ltr inline-block font-mono bg-white px-1.5 py-0.5 rounded">
+                  Saei@2026
+                </span>
+              </p>
+              <ul className="space-y-1 text-stone-700">
+                <li>
+                  <span className="ltr font-mono">admin@saei.local</span> — مدير
+                  النظام
+                </li>
+                <li>
+                  <span className="ltr font-mono">research.coord@saei.local</span>{" "}
+                  — منسق الأبحاث
+                </li>
+                <li>
+                  <span className="ltr font-mono">journal.coord@saei.local</span>{" "}
+                  — منسق المجلة
+                </li>
+                <li>
+                  <span className="ltr font-mono">abdullah.salem@saei.local</span>{" "}
+                  — باحث
+                </li>
+                <li>
+                  <span className="ltr font-mono">reviewer@saei.local</span> —
+                  محكم
+                </li>
+              </ul>
+            </div>
+          )}
+        </div>
+      </CardContent>
     </Card>
   );
 }

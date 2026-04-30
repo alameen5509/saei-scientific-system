@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Cairo, Amiri } from "next/font/google";
+import { SessionProvider } from "@/components/providers/SessionProvider";
 import "./globals.css";
 
 // خط Cairo للواجهة العامة
@@ -45,7 +46,7 @@ export default function RootLayout({
       className={`${cairo.variable} ${amiri.variable}`}
     >
       <body className="min-h-screen bg-saei-cream text-saei-ink antialiased">
-        {children}
+        <SessionProvider>{children}</SessionProvider>
       </body>
     </html>
   );
