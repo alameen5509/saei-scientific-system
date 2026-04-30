@@ -2,26 +2,70 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   نظام إدارة الأعمال العلمية — مؤسسة ساعي
+   متغيرات الجذر + RTL + خطوط Cairo و Amiri
+   ============================================================ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #faf8f3;
+  --foreground: #1f1b30;
+
+  /* ألوان ساعي كمتغيرات CSS للوصول من خارج Tailwind */
+  --saei-purple: #5e5495;
+  --saei-purple-dark: #3f3766;
+  --saei-gold: #c9a84c;
+  --saei-teal: #2abfbf;
+  --saei-cream: #faf8f3;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  /* RTL إلزامي للعربية */
+  direction: rtl;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-cairo), "Cairo", system-ui, sans-serif;
+  font-feature-settings: "kern", "liga", "calt";
+}
+
+/* فئة مساعدة لعرض النصوص الشرعية بخط Amiri */
+.font-quran {
+  font-family: var(--font-amiri), "Amiri", "Traditional Arabic", serif;
+  line-height: 2.1;
+  font-size: 1.25rem;
+}
+
+/* أرقام تابولارية للأرقام في الجداول */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* تنسيق scrollbar خفيف بهوية ساعي */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(94, 84, 149, 0.3);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(94, 84, 149, 0.5);
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* اتجاه RTL/LTR صريح عند الحاجة لخلط النصوص */
+  .ltr {
+    direction: ltr;
+  }
+  .rtl {
+    direction: rtl;
   }
 }

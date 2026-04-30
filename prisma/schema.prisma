@@ -1,0 +1,209 @@
+// نظام إدارة الأعمال العلمية — مؤسسة ساعي
+// مخطط Prisma 7 — كل الجداول تحوي tenantId="saei" + createdAt + updatedAt
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// المستخدمون والباحثون
+// ============================================================
+
+model User {
+  id        String   @id @default(cuid())
+  tenantId  String   @default("saei")
+  email     String   @unique
+  name      String?
+  password  String?
+  role      UserRole @default(RESEARCHER)
+  image     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  researcher    Researcher?
+  managedProjects   Project[] @relation("ProjectManager")
+  assignedTasks     Task[]    @relation("TaskAssignee")
+
+  @@index([tenantId])
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  RESEARCHER
+}
+
+model Researcher {
+  id            String   @id @default(cuid())
+  tenantId      String   @default("saei")
+  userId        String   @unique
+  bio           String?
+  specialty     String?
+  academicTitle String?
+  joinedAt      DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projects     ProjectResearcher[]
+  publications Publication[]
+
+  @@index([tenantId])
+  @@index([userId])
+}
+
+// ============================================================
+// المشاريع البحثية
+// ============================================================
+
+model Project {
+  id          String        @id @default(cuid())
+  tenantId    String        @default("saei")
+  code        String        @unique
+  title       String
+  description String        @db.Text
+  status      ProjectStatus @default(PROPOSED)
+  priority    Priority      @default(MEDIUM)
+  startDate   DateTime?
+  endDate     DateTime?
+  managerId   String?
+  budget      Decimal?      @db.Decimal(12, 2)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  manager     User?               @relation("ProjectManager", fields: [managerId], references: [id])
+  tasks       Task[]
+  researchers ProjectResearcher[]
+  reports     Report[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([managerId])
+}
+
+enum ProjectStatus {
+  PROPOSED
+  APPROVED
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model ProjectResearcher {
+  id           String   @id @default(cuid())
+  tenantId     String   @default("saei")
+  projectId    String
+  researcherId String
+  role         String
+  joinedAt     DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  researcher Researcher @relation(fields: [researcherId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, researcherId])
+  @@index([tenantId])
+}
+
+// ============================================================
+// المهام
+// ============================================================
+
+model Task {
+  id           String     @id @default(cuid())
+  tenantId     String     @default("saei")
+  projectId    String
+  title        String
+  description  String?    @db.Text
+  status       TaskStatus @default(TODO)
+  priority     Priority   @default(MEDIUM)
+  assigneeId   String?
+  dueDate      DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+
+  @@index([tenantId])
+  @@index([projectId])
+  @@index([assigneeId])
+  @@index([status])
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+}
+
+// ============================================================
+// المنشورات والتقارير
+// ============================================================
+
+model Publication {
+  id           String          @id @default(cuid())
+  tenantId     String          @default("saei")
+  researcherId String
+  title        String
+  type         PublicationType
+  publisher    String?
+  year         Int?
+  url          String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  researcher Researcher @relation(fields: [researcherId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([researcherId])
+}
+
+enum PublicationType {
+  PAPER
+  BOOK
+  ARTICLE
+  CHAPTER
+  THESIS
+  REPORT
+}
+
+model Report {
+  id        String     @id @default(cuid())
+  tenantId  String     @default("saei")
+  projectId String
+  period    String
+  summary   String     @db.Text
+  fileUrl   String?
+  status    ReportStatus @default(DRAFT)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([projectId])
+}
+
+enum ReportStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
