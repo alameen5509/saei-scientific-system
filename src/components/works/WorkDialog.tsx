@@ -70,6 +70,7 @@ const EMPTY: WorkFormValues = {
 interface FormDialogProps {
   open: boolean;
   initial?: ScientificWork | null;
+  submitting?: boolean;
   onOpenChange: (v: boolean) => void;
   onSubmit: (values: WorkFormValues) => void;
 }
@@ -77,6 +78,7 @@ interface FormDialogProps {
 export function WorkFormDialog({
   open,
   initial,
+  submitting = false,
   onOpenChange,
   onSubmit,
 }: FormDialogProps) {
@@ -287,14 +289,19 @@ export function WorkFormDialog({
           )}
 
           <DialogFooter className="gap-2">
-            <Button type="submit" variant="primary">
+            <Button type="submit" variant="primary" disabled={submitting}>
               <Save className="h-4 w-4" />
-              {isEdit ? "حفظ التغييرات" : "إضافة العمل"}
+              {submitting
+                ? "جاري الحفظ..."
+                : isEdit
+                  ? "حفظ التغييرات"
+                  : "إضافة العمل"}
             </Button>
             <Button
               type="button"
               variant="ghost"
               onClick={() => onOpenChange(false)}
+              disabled={submitting}
             >
               إلغاء
             </Button>

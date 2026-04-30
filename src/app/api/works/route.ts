@@ -1,0 +1,86 @@
+// GET /api/works  — قائمة كل الأعمال
+// POST /api/works — إضافة عمل جديد
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import {
+  findOrCreateResearcherByName,
+  nextWorkCode,
+  serializeWork,
+  validateWorkInput,
+} from "@/lib/works-service";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+  try {
+    const rows = await prisma.scientificWork.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { researcher: { select: { displayName: true } } },
+    });
+    return NextResponse.json({
+      ok: true,
+      works: rows.map(serializeWork),
+    });
+  } catch (err) {
+    console.error("GET /api/works", err);
+    return NextResponse.json(
+      { ok: false, error: "تعذّر تحميل البيانات" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const v = validateWorkInput(body);
+    if (!v.ok) {
+      return NextResponse.json(
+        { ok: false, error: v.error },
+        { status: 400 }
+      );
+    }
+    const data = v.data;
+
+    const researcherId = await findOrCreateResearcherByName(data.researcher);
+    const code = data.code?.trim() || (await nextWorkCode());
+
+    // التحقق من تفرّد الرمز
+    const existing = await prisma.scientificWork.findUnique({ where: { code } });
+    if (existing) {
+      return NextResponse.json(
+        { ok: false, error: `الرمز "${code}" مستخدم بالفعل` },
+        { status: 409 }
+      );
+    }
+
+    const created = await prisma.scientificWork.create({
+      data: {
+        code,
+        title: data.title,
+        specialty: data.specialty,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        track: data.track as any,
+        researcherId,
+        stageCode: data.stage,
+        progress: data.progress,
+        startedAt: new Date(data.startedAt),
+        deadline: new Date(data.deadline),
+        notes: data.notes ?? null,
+      },
+      include: { researcher: { select: { displayName: true } } },
+    });
+
+    return NextResponse.json(
+      { ok: true, work: serializeWork(created) },
+      { status: 201 }
+    );
+  } catch (err) {
+    console.error("POST /api/works", err);
+    return NextResponse.json(
+      { ok: false, error: "تعذّر إنشاء العمل" },
+      { status: 500 }
+    );
+  }
+}

@@ -1,0 +1,24 @@
+# بديل لـ`npx prisma dev` — Postgres حقيقي بـDocker
+# للاستخدام: docker compose up -d ثم تحديث DATABASE_URL في .env إلى:
+# postgresql://saei:saei@localhost:5432/saei_scientific?schema=public
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: saei-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: saei
+      POSTGRES_PASSWORD: saei
+      POSTGRES_DB: saei_scientific
+    ports:
+      - "5432:5432"
+    volumes:
+      - saei_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saei -d saei_scientific"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  saei_pgdata:

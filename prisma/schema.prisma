@@ -1,5 +1,6 @@
 // نظام إدارة الأعمال العلمية — مؤسسة ساعي
-// مخطط Prisma 7 — كل الجداول تحوي tenantId="saei" + createdAt + updatedAt
+// Prisma 7 — driver adapter (@prisma/adapter-pg) إلزامي
+// كل الجداول tenantId="saei" + createdAt + updatedAt + indexes مناسبة
 
 generator client {
   provider = "prisma-client"
@@ -11,7 +12,7 @@ datasource db {
 }
 
 // ============================================================
-// المستخدمون والباحثون
+// المستخدمون (NextAuth-compatible) + الأدوار
 // ============================================================
 
 model User {
@@ -20,14 +21,13 @@ model User {
   email     String   @unique
   name      String?
   password  String?
-  role      UserRole @default(RESEARCHER)
   image     String?
+  role      UserRole @default(RESEARCHER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  researcher    Researcher?
-  managedProjects   Project[] @relation("ProjectManager")
-  assignedTasks     Task[]    @relation("TaskAssignee")
+  researcher Researcher?
+  reviewer   Reviewer?
 
   @@index([tenantId])
 }
@@ -36,174 +36,135 @@ enum UserRole {
   ADMIN
   MANAGER
   RESEARCHER
+  REVIEWER
 }
+
+// ============================================================
+// الباحث — ملف موسّع لمستخدم بدور RESEARCHER
+// ============================================================
 
 model Researcher {
   id            String   @id @default(cuid())
   tenantId      String   @default("saei")
   userId        String   @unique
-  bio           String?
-  specialty     String?
+  displayName   String
   academicTitle String?
+  specialty     String?
+  bio           String?
   joinedAt      DateTime @default(now())
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  projects     ProjectResearcher[]
-  publications Publication[]
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  works ScientificWork[] @relation("WorkOwner")
 
   @@index([tenantId])
-  @@index([userId])
 }
 
 // ============================================================
-// المشاريع البحثية
+// المراجع — ملف موسّع لمستخدم بدور REVIEWER
 // ============================================================
 
-model Project {
-  id          String        @id @default(cuid())
-  tenantId    String        @default("saei")
-  code        String        @unique
-  title       String
-  description String        @db.Text
-  status      ProjectStatus @default(PROPOSED)
-  priority    Priority      @default(MEDIUM)
-  startDate   DateTime?
-  endDate     DateTime?
-  managerId   String?
-  budget      Decimal?      @db.Decimal(12, 2)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+model Reviewer {
+  id        String   @id @default(cuid())
+  tenantId  String   @default("saei")
+  userId    String   @unique
+  expertise String?
+  bio       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  manager     User?               @relation("ProjectManager", fields: [managerId], references: [id])
-  tasks       Task[]
-  researchers ProjectResearcher[]
-  reports     Report[]
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviews Review[]
 
-  @@index([tenantId])
-  @@index([status])
-  @@index([managerId])
-}
-
-enum ProjectStatus {
-  PROPOSED
-  APPROVED
-  IN_PROGRESS
-  ON_HOLD
-  COMPLETED
-  ARCHIVED
-}
-
-enum Priority {
-  LOW
-  MEDIUM
-  HIGH
-  URGENT
-}
-
-model ProjectResearcher {
-  id           String   @id @default(cuid())
-  tenantId     String   @default("saei")
-  projectId    String
-  researcherId String
-  role         String
-  joinedAt     DateTime @default(now())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  researcher Researcher @relation(fields: [researcherId], references: [id], onDelete: Cascade)
-
-  @@unique([projectId, researcherId])
   @@index([tenantId])
 }
 
 // ============================================================
-// المهام
+// مراحل سير العمل — جدول مرجعي قابل للتوسعة
 // ============================================================
 
-model Task {
-  id           String     @id @default(cuid())
-  tenantId     String     @default("saei")
-  projectId    String
+model WorkflowStage {
+  id        String   @id @default(cuid())
+  tenantId  String   @default("saei")
+  code      String   @unique
+  label     String
+  order     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  works ScientificWork[]
+
+  @@index([tenantId])
+}
+
+// ============================================================
+// الأعمال العلمية — الكيان المركزي
+// ============================================================
+
+model ScientificWork {
+  id           String    @id @default(cuid())
+  tenantId     String    @default("saei")
+  code         String    @unique
   title        String
-  description  String?    @db.Text
-  status       TaskStatus @default(TODO)
-  priority     Priority   @default(MEDIUM)
-  assigneeId   String?
-  dueDate      DateTime?
-  completedAt  DateTime?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-
-  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assignee User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
-
-  @@index([tenantId])
-  @@index([projectId])
-  @@index([assigneeId])
-  @@index([status])
-}
-
-enum TaskStatus {
-  TODO
-  IN_PROGRESS
-  BLOCKED
-  DONE
-}
-
-// ============================================================
-// المنشورات والتقارير
-// ============================================================
-
-model Publication {
-  id           String          @id @default(cuid())
-  tenantId     String          @default("saei")
+  specialty    String
+  track        WorkTrack
   researcherId String
-  title        String
-  type         PublicationType
-  publisher    String?
-  year         Int?
-  url          String?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  stageCode    String
+  progress     Int       @default(0)
+  startedAt    DateTime
+  deadline     DateTime
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  researcher Researcher @relation(fields: [researcherId], references: [id], onDelete: Cascade)
+  researcher Researcher    @relation("WorkOwner", fields: [researcherId], references: [id], onDelete: Restrict)
+  stage      WorkflowStage @relation(fields: [stageCode], references: [code])
+  reviews    Review[]
 
   @@index([tenantId])
   @@index([researcherId])
+  @@index([stageCode])
+  @@index([track])
+  @@index([deadline])
 }
 
-enum PublicationType {
-  PAPER
+enum WorkTrack {
   BOOK
-  ARTICLE
-  CHAPTER
+  JOURNAL
   THESIS
-  REPORT
+  ARTICLE
 }
 
-model Report {
-  id        String     @id @default(cuid())
-  tenantId  String     @default("saei")
-  projectId String
-  period    String
-  summary   String     @db.Text
-  fileUrl   String?
-  status    ReportStatus @default(DRAFT)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+// ============================================================
+// المراجعات — تقييم العمل من قِبل مراجع
+// ============================================================
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+model Review {
+  id         String       @id @default(cuid())
+  tenantId   String       @default("saei")
+  workId     String
+  reviewerId String
+  status     ReviewStatus @default(PENDING)
+  rating     Int?
+  comments   String?
+  submittedAt DateTime?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  work     ScientificWork @relation(fields: [workId], references: [id], onDelete: Cascade)
+  reviewer Reviewer       @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
 
   @@index([tenantId])
-  @@index([projectId])
+  @@index([workId])
+  @@index([reviewerId])
+  @@index([status])
 }
 
-enum ReportStatus {
-  DRAFT
-  SUBMITTED
+enum ReviewStatus {
+  PENDING
+  IN_REVIEW
   APPROVED
   REJECTED
+  NEEDS_REVISION
 }

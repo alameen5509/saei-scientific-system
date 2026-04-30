@@ -1,7 +1,8 @@
 "use client";
 
-// صفحة إدارة الأعمال العلمية — جدول متقدم + فلاتر + بحث + pagination
-// + إضافة/تعديل/حذف/نقل المرحلة + بطاقات إحصاء + تصميم RTL responsive
+// صفحة إدارة الأعمال العلمية — مرتبطة بـAPI/قاعدة البيانات الحقيقية
+// — useWorks() يدير الجلب والمتفائل والـtoast
+// — التصفية والبحث والـpagination تبقى client-side على البيانات المحمَّلة
 import { useMemo, useState } from "react";
 import {
   Plus,
@@ -10,6 +11,7 @@ import {
   CheckCircle2,
   Clock,
   AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,30 +33,40 @@ import {
   WorkViewDialog,
   type WorkFormValues,
 } from "@/components/works/WorkDialog";
-import { SAMPLE_WORKS } from "@/lib/works-data";
-import {
-  isOverdue,
-  nextStage,
-  type ScientificWork,
-} from "@/types/works";
+import { WorksTableSkeleton } from "@/components/works/WorksTableSkeleton";
+import { Toast } from "@/components/works/Toast";
+import { useWorks } from "@/components/works/use-works";
+import { isOverdue, type ScientificWork } from "@/types/works";
 import { toArabicDigits } from "@/lib/utils";
 
 const PAGE_SIZE = 8;
 
 export default function ProjectsPage() {
-  // ————— مصدر البيانات (in-memory حتى ربط DB) —————
-  const [works, setWorks] = useState<ScientificWork[]>(SAMPLE_WORKS);
+  // ————— البيانات من API —————
+  const {
+    works,
+    loading,
+    error,
+    toast,
+    dismissToast,
+    refetch,
+    create,
+    update,
+    remove,
+    advance,
+  } = useWorks();
 
-  // ————— حالة الفلاتر والبحث والصفحة —————
+  // ————— الفلاتر والبحث والصفحة —————
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FiltersState>(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
 
-  // ————— حالات النوافذ —————
+  // ————— حالة النوافذ —————
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ScientificWork | null>(null);
   const [viewOpen, setViewOpen] = useState(false);
   const [viewing, setViewing] = useState<ScientificWork | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   // ————— تطبيق البحث + الفلاتر —————
   const filtered = useMemo(() => {
@@ -71,7 +83,7 @@ export default function ProjectsPage() {
     });
   }, [works, search, filters]);
 
-  // ————— Pagination حسابات —————
+  // ————— Pagination —————
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
   const pageItems = filtered.slice(
@@ -79,7 +91,6 @@ export default function ProjectsPage() {
     safePage * PAGE_SIZE
   );
 
-  // عند تغيير الفلاتر/البحث، نرجع للصفحة 1
   function handleFiltersChange(f: FiltersState) {
     setFilters(f);
     setPage(1);
@@ -89,7 +100,7 @@ export default function ProjectsPage() {
     setPage(1);
   }
 
-  // ————— إحصاءات سريعة على البيانات الكاملة —————
+  // ————— الإحصاءات —————
   const stats = useMemo(() => {
     const total = works.length;
     const inProgress = works.filter(
@@ -119,42 +130,56 @@ export default function ProjectsPage() {
     setFormOpen(true);
   }
 
-  function handleAdvance(w: ScientificWork) {
-    const next = nextStage(w.stage);
-    if (!next) return;
-    setWorks((all) =>
-      all.map((x) =>
-        x.id === w.id
-          ? {
-              ...x,
-              stage: next,
-              progress: next === "PUBLISHED" ? 100 : x.progress,
-              updatedAt: new Date().toISOString(),
-            }
-          : x
-      )
+  async function handleAdvance(w: ScientificWork) {
+    await advance(w.id);
+  }
+
+  async function handleDelete(w: ScientificWork) {
+    if (!confirm(`هل تريد حذف العمل "${w.title}"؟`)) return;
+    await remove(w.id);
+  }
+
+  async function handleSubmit(values: WorkFormValues) {
+    setSubmitting(true);
+    const ok = editing
+      ? await update(editing.id, values)
+      : await create(values);
+    setSubmitting(false);
+    if (ok) setFormOpen(false);
+  }
+
+  // ————— حالة الخطأ المُحظِرة (initial load failure) —————
+  if (error && works.length === 0) {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center space-y-4">
+        <AlertTriangle className="h-10 w-10 text-red-600 mx-auto" />
+        <div>
+          <h2 className="text-lg font-extrabold text-red-800 mb-1">
+            تعذّر تحميل الأعمال العلمية
+          </h2>
+          <p className="text-sm text-red-700">{error}</p>
+        </div>
+        <Button variant="primary" onClick={() => void refetch()}>
+          <RefreshCw className="h-4 w-4" />
+          إعادة المحاولة
+        </Button>
+      </div>
     );
   }
 
-  function handleDelete(w: ScientificWork) {
-    if (!confirm(`هل تريد حذف العمل "${w.title}"؟`)) return;
-    setWorks((all) => all.filter((x) => x.id !== w.id));
-  }
-
-  function handleSubmit(values: WorkFormValues) {
-    if (editing) {
-      setWorks((all) =>
-        all.map((x) => (x.id === editing.id ? { ...x, ...values } : x))
-      );
-    } else {
-      const nextNumber = works.length + 1;
-      const code =
-        values.code.trim() ||
-        `SAEI-2024-${String(nextNumber).padStart(3, "0")}`;
-      const id = `w-${Date.now().toString(36)}`;
-      setWorks((all) => [{ id, ...values, code }, ...all]);
-    }
-    setFormOpen(false);
+  // ————— حالة التحميل الأولي —————
+  if (loading && works.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-saei-purple-700 mb-1">
+            الأعمال العلمية
+          </h1>
+          <p className="text-stone-600 text-sm">جاري تحميل البيانات…</p>
+        </div>
+        <WorksTableSkeleton />
+      </div>
+    );
   }
 
   return (
@@ -169,11 +194,40 @@ export default function ProjectsPage() {
             إدارة شاملة لجميع الأعمال العلمية في مؤسسة ساعي
           </p>
         </div>
-        <Button variant="primary" size="md" onClick={openAdd}>
-          <Plus className="h-4 w-4" />
-          إضافة عمل علمي جديد
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void refetch()}
+            disabled={loading}
+            aria-label="تحديث"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+            />
+            تحديث
+          </Button>
+          <Button variant="primary" size="md" onClick={openAdd}>
+            <Plus className="h-4 w-4" />
+            إضافة عمل علمي جديد
+          </Button>
+        </div>
       </div>
+
+      {/* ————— شريط خطأ غير مُحظِر (الجلب فشل لكن البيانات موجودة) ————— */}
+      {error && works.length > 0 && (
+        <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800 flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">{error}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void refetch()}
+          >
+            إعادة المحاولة
+          </Button>
+        </div>
+      )}
 
       {/* ————— KPIs ————— */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
@@ -273,7 +327,8 @@ export default function ProjectsPage() {
       <WorkFormDialog
         open={formOpen}
         initial={editing}
-        onOpenChange={setFormOpen}
+        submitting={submitting}
+        onOpenChange={(v) => !submitting && setFormOpen(v)}
         onSubmit={handleSubmit}
       />
       <WorkViewDialog
@@ -281,6 +336,11 @@ export default function ProjectsPage() {
         work={viewing}
         onOpenChange={setViewOpen}
       />
+
+      {/* ————— Toast ————— */}
+      {toast && (
+        <Toast type={toast.type} text={toast.text} onClose={dismissToast} />
+      )}
     </div>
   );
 }
