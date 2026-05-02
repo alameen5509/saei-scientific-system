@@ -1,23 +1,27 @@
-// زر بنمط ساعي
+// زر بنمط ساعي — هوية تركوازية/سماوية
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saei-gold focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saei-sky focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
+        // primary = تركوازي مع تدرج
         primary:
-          "bg-saei-purple text-white hover:bg-saei-purple-700 shadow-saei-sm",
-        gold: "bg-saei-gold text-saei-purple-900 hover:bg-saei-gold-600 shadow-saei-sm",
-        teal: "bg-saei-teal text-white hover:bg-saei-teal-500 shadow-saei-sm",
+          "bg-saei-hero text-white hover:opacity-90 shadow-saei-sm",
+        // gold (الاسم محفوظ) = الآن أزرق سماوي
+        gold: "bg-saei-sky text-white hover:bg-saei-sky-600 shadow-saei-sm",
+        // teal = درجة وسطى
+        teal: "bg-saei-teal text-white hover:bg-saei-teal-600 shadow-saei-sm",
         outline:
-          "border-2 border-saei-purple text-saei-purple hover:bg-saei-purple hover:text-white",
-        ghost: "text-saei-purple hover:bg-saei-purple-50",
+          "border-2 border-saei-cyan-700 text-saei-cyan-700 hover:bg-saei-cyan hover:text-white hover:border-saei-cyan",
+        ghost:
+          "text-saei-cyan-700 hover:bg-saei-cyan-50 hover:text-saei-cyan-800",
         danger: "bg-red-600 text-white hover:bg-red-700",
-        link: "text-saei-purple underline-offset-4 hover:underline",
+        link: "text-saei-sky-700 underline-offset-4 hover:underline",
       },
       size: {
         sm: "h-9 px-4",

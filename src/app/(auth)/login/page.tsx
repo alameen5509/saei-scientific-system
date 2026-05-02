@@ -25,7 +25,7 @@ export default function LoginPage() {
           href="/"
           className="flex items-center gap-2 text-saei-purple-700 font-extrabold w-fit"
         >
-          <span className="inline-block h-9 w-9 rounded-xl bg-saei-purple text-white grid place-items-center shadow-saei-sm">
+          <span className="inline-block h-9 w-9 rounded-xl bg-saei-hero text-white grid place-items-center shadow-saei-sm">
             س
           </span>
           <span>مؤسسة ساعي</span>
@@ -79,7 +79,7 @@ function LoginForm() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <div className="mx-auto h-14 w-14 rounded-2xl bg-saei-purple text-white grid place-items-center mb-3 shadow-saei-sm">
+        <div className="mx-auto h-14 w-14 rounded-2xl bg-saei-hero text-white grid place-items-center mb-3 shadow-saei-sm">
           <LogIn className="h-6 w-6" />
         </div>
         <CardTitle className="text-2xl">تسجيل الدخول</CardTitle>

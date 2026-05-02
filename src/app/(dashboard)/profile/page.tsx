@@ -232,7 +232,7 @@ export default function ProfilePage() {
 
       <Card>
         <CardHeader className="flex-row items-center gap-4">
-          <div className="h-16 w-16 rounded-2xl bg-saei-purple text-white grid place-items-center font-extrabold text-2xl shadow-saei-sm">
+          <div className="h-16 w-16 rounded-2xl bg-saei-hero text-white grid place-items-center font-extrabold text-2xl shadow-saei-sm">
             {(profile.name ?? profile.email).charAt(0)}
           </div>
           <div className="flex-1 min-w-0">

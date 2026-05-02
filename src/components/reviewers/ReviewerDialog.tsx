@@ -237,7 +237,7 @@ export function ReviewerDialog({
                     className={cn(
                       "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold border transition-colors",
                       active
-                        ? "bg-saei-purple text-white border-saei-purple shadow-saei-sm"
+                        ? "bg-saei-hero text-white border-saei-cyan-700 shadow-saei-sm"
                         : "bg-white text-saei-purple-700 border-saei-purple-200 hover:bg-saei-purple-50"
                     )}
                   >

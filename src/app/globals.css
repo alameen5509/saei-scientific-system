@@ -4,19 +4,24 @@
 
 /* ============================================================
    نظام إدارة الأعمال العلمية — مؤسسة ساعي
-   متغيرات الجذر + RTL + خطوط Cairo و Amiri
+   الهوية البصرية: تركوازي + أزرق سماوي
    ============================================================ */
 
 :root {
-  --background: #faf8f3;
-  --foreground: #1f1b30;
+  --background: #f8fafc;
+  --foreground: #0f172a;
 
-  /* ألوان ساعي كمتغيرات CSS للوصول من خارج Tailwind */
-  --saei-purple: #5e5495;
-  --saei-purple-dark: #3f3766;
-  --saei-gold: #c9a84c;
-  --saei-teal: #2abfbf;
-  --saei-cream: #faf8f3;
+  /* ألوان ساعي كمتغيرات CSS — قابلة للوصول من خارج Tailwind
+     ملاحظة: الاسم --saei-purple محفوظ من الإصدار السابق
+     لكن قيمته الآن تركوازية */
+  --saei-purple: #00d4dd; /* اللون الأساسي — تركوازي */
+  --saei-purple-dark: #0e7490; /* لتباين قوي */
+  --saei-gold: #0ea5e9; /* اللون الثانوي — أزرق سماوي */
+  --saei-teal: #06b6d4;
+  --saei-cyan: #00d4dd;
+  --saei-sky: #0ea5e9;
+  --saei-cream: #f8fafc;
+  --saei-ink: #0f172a;
 }
 
 html {
@@ -43,17 +48,17 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* تنسيق scrollbar خفيف بهوية ساعي */
+/* تنسيق scrollbar خفيف بالهوية الجديدة */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(94, 84, 149, 0.3);
+  background: rgba(0, 212, 221, 0.3);
   border-radius: 8px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(94, 84, 149, 0.5);
+  background: rgba(14, 165, 233, 0.5);
 }
 
 @layer utilities {
@@ -67,5 +72,16 @@ body {
   }
   .rtl {
     direction: rtl;
+  }
+
+  /* تدرج Hero — مطابق لموقع ساعي */
+  .bg-saei-hero {
+    background: linear-gradient(135deg, #00d4dd 0%, #0ea5e9 100%);
+  }
+  .bg-saei-hero-radial {
+    background:
+      radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.15) 0%, transparent 45%),
+      radial-gradient(circle at 75% 75%, rgba(255, 255, 255, 0.1) 0%, transparent 45%),
+      linear-gradient(135deg, #00d4dd 0%, #0ea5e9 100%);
   }
 }

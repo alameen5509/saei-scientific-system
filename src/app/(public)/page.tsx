@@ -1,4 +1,5 @@
 // صفحة الواجهة العامة لنظام إدارة الأعمال العلمية
+// — هوية بصرية: تركوازي #00D4DD → أزرق سماوي #0EA5E9
 import Link from "next/link";
 import {
   FolderKanban,
@@ -6,11 +7,11 @@ import {
   FileBarChart,
   ArrowLeft,
   Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -22,21 +23,24 @@ const features = [
     title: "إدارة المشاريع البحثية",
     description:
       "تتبّع كل مشروع علمي من المقترح إلى الأرشفة، مع جدولة المهام وتعيين الباحثين.",
-    color: "bg-saei-purple/10 text-saei-purple",
+    iconBg: "bg-saei-cyan/10",
+    iconText: "text-saei-cyan-700",
   },
   {
     icon: Users,
     title: "ملفات الباحثين",
     description:
       "سجلّات تعريفية ومنشورات ومشاركات لكل باحث في المؤسسة، مع لوحة إنتاجية.",
-    color: "bg-saei-teal/10 text-saei-teal",
+    iconBg: "bg-saei-sky/10",
+    iconText: "text-saei-sky-600",
   },
   {
     icon: FileBarChart,
     title: "التقارير والإحصاءات",
     description:
       "لوحات بيانية تفاعلية لإنتاجية الباحثين والمشاريع، قابلة للتصدير والمشاركة.",
-    color: "bg-saei-gold/15 text-saei-gold-700",
+    iconBg: "bg-saei-teal/10",
+    iconText: "text-saei-teal-700",
   },
 ];
 
@@ -46,7 +50,7 @@ export default function LandingPage() {
       {/* Top bar */}
       <header className="container mx-auto px-4 py-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-saei-purple text-white grid place-items-center font-extrabold shadow-saei-sm">
+          <div className="h-10 w-10 rounded-xl bg-saei-hero text-white grid place-items-center font-extrabold shadow-saei-sm">
             س
           </div>
           <div>
@@ -68,36 +72,56 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-bl from-saei-purple via-saei-purple-700 to-saei-purple-800 text-white">
+      {/* ============================================================
+          Hero — تدرج تركوازي/سماوي مع زخارف بيضاء
+          ============================================================ */}
+      <section className="relative overflow-hidden text-white bg-saei-hero-radial">
+        {/* نمط شبكي خفيف للتزيين */}
         <div
           aria-hidden
-          className="absolute inset-0 opacity-15"
+          className="absolute inset-0 opacity-[0.06]"
           style={{
             backgroundImage:
-              "radial-gradient(circle at 15% 25%, #C9A84C 0, transparent 35%), radial-gradient(circle at 85% 75%, #2ABFBF 0, transparent 35%)",
+              "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
+            backgroundSize: "44px 44px",
           }}
         />
 
-        <div className="container relative mx-auto px-4 py-20 md:py-28 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-saei-gold/40 bg-white/5 px-4 py-1.5 text-xs text-saei-gold mb-6">
+        {/* فقاعة ضوء يمين */}
+        <div
+          aria-hidden
+          className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-white/10 blur-3xl"
+        />
+        {/* فقاعة ضوء يسار */}
+        <div
+          aria-hidden
+          className="absolute -bottom-24 -left-24 h-96 w-96 rounded-full bg-white/10 blur-3xl"
+        />
+
+        <div className="container relative mx-auto px-4 py-20 md:py-32 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 backdrop-blur-sm px-4 py-1.5 text-xs text-white mb-6">
             <Sparkles className="h-3.5 w-3.5" />
-            النسخة الأولى — قيد البناء
+            مؤسسة ساعي العلمية
           </div>
 
-          <h1 className="font-extrabold text-3xl sm:text-4xl md:text-5xl lg:text-6xl leading-tight mb-6">
+          <h1 className="font-extrabold text-3xl sm:text-4xl md:text-5xl lg:text-6xl leading-tight mb-6 text-white">
             نظام إدارة الأعمال العلمية
             <br />
-            <span className="text-saei-gold">مؤسسة ساعي</span>
+            <span className="text-white/90">منصّة موحّدة وآمنة</span>
           </h1>
 
-          <p className="text-lg md:text-xl text-saei-cream/90 mb-10 max-w-2xl mx-auto leading-relaxed">
-            منصّة موحّدة لإدارة المشاريع البحثية، الباحثين، المهام والتقارير في
-            مؤسسة ساعي العلمية.
+          <p className="text-lg md:text-xl text-white/85 mb-10 max-w-2xl mx-auto leading-relaxed">
+            إدارة المشاريع البحثية والباحثين والمحكمين والتقارير في مكان واحد —
+            مع نظام تحكيم معمَّى احترافي.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-            <Button asChild variant="gold" size="lg">
+            {/* زر أبيض على الخلفية الملونة — أعلى تباين */}
+            <Button
+              asChild
+              size="lg"
+              className="bg-white text-saei-sky-700 hover:bg-white/90 shadow-saei-md"
+            >
               <Link href="/dashboard">
                 ادخل إلى لوحة التحكم
                 <ArrowLeft className="h-4 w-4" />
@@ -105,20 +129,36 @@ export default function LandingPage() {
             </Button>
             <Button
               asChild
-              variant="outline"
               size="lg"
-              className="border-saei-cream text-saei-cream hover:bg-saei-cream hover:text-saei-purple-800"
+              variant="outline"
+              className="border-white text-white hover:bg-white hover:text-saei-sky-700"
             >
               <Link href="/login">تسجيل الدخول</Link>
             </Button>
           </div>
         </div>
+
+        {/* موجة سفلية للانتقال السلس */}
+        <div className="relative h-12 sm:h-16">
+          <svg
+            className="absolute bottom-0 w-full h-full"
+            preserveAspectRatio="none"
+            viewBox="0 0 1440 80"
+          >
+            <path
+              fill="#F8FAFC"
+              d="M0,32L60,37.3C120,43,240,53,360,53.3C480,53,600,43,720,42.7C840,43,960,53,1080,53.3C1200,53,1320,43,1380,37.3L1440,32L1440,80L1380,80C1320,80,1200,80,1080,80C960,80,840,80,720,80C600,80,480,80,360,80C240,80,120,80,60,80L0,80Z"
+            />
+          </svg>
+        </div>
       </section>
 
-      {/* Features */}
+      {/* ============================================================
+          Features
+          ============================================================ */}
       <section className="container mx-auto px-4 py-16 md:py-24">
         <div className="text-center mb-12">
-          <h2 className="text-2xl md:text-4xl font-extrabold text-saei-purple-700 mb-3">
+          <h2 className="text-2xl md:text-4xl font-extrabold text-saei-ink mb-3">
             ما يقدّمه النظام
           </h2>
           <p className="text-stone-600 max-w-xl mx-auto">
@@ -130,10 +170,13 @@ export default function LandingPage() {
           {features.map((f) => {
             const Icon = f.icon;
             return (
-              <Card key={f.title} className="hover:shadow-saei-md transition-shadow">
+              <Card
+                key={f.title}
+                className="hover:shadow-saei-md transition-shadow"
+              >
                 <CardHeader>
                   <div
-                    className={`h-14 w-14 rounded-2xl grid place-items-center mb-3 ${f.color}`}
+                    className={`h-14 w-14 rounded-2xl grid place-items-center mb-3 ${f.iconBg} ${f.iconText}`}
                   >
                     <Icon className="h-7 w-7" />
                   </div>
@@ -146,7 +189,34 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="mt-auto bg-saei-purple-800 text-saei-cream py-8">
+      {/* ============================================================
+          CTA bar — تركوازي مع زخرفة
+          ============================================================ */}
+      <section className="container mx-auto px-4 pb-16">
+        <div className="rounded-3xl bg-saei-hero p-8 md:p-12 text-white text-center shadow-saei-lg relative overflow-hidden">
+          <div
+            aria-hidden
+            className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-white/10 blur-2xl"
+          />
+          <ShieldCheck className="h-10 w-10 mx-auto mb-4 opacity-90" />
+          <h3 className="text-2xl md:text-3xl font-extrabold mb-3">
+            تحكيم معمَّى يحفظ خصوصية الباحث
+          </h3>
+          <p className="text-white/85 mb-6 max-w-xl mx-auto">
+            نظام صارم لإخفاء هوية الباحث عن المحكمين، مع أدوات تعيين تلقائية
+            وتقييم منظَّم.
+          </p>
+          <Button
+            asChild
+            size="lg"
+            className="bg-white text-saei-sky-700 hover:bg-white/90"
+          >
+            <Link href="/login">جرّب النظام الآن</Link>
+          </Button>
+        </div>
+      </section>
+
+      <footer className="mt-auto bg-saei-sky-900 text-white/90 py-8">
         <div className="container mx-auto px-4 text-center text-sm">
           © {new Date().getFullYear()} مؤسسة ساعي — نظام إدارة الأعمال العلمية.
           كل الحقوق محفوظة.

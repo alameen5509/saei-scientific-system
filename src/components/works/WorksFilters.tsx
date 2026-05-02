@@ -64,7 +64,7 @@ export function WorksFilters({ value, onChange }: Props) {
           <Filter className="h-4 w-4" />
           <span>الفلاتر</span>
           {count > 0 && (
-            <span className="text-xs bg-saei-gold text-saei-purple-900 px-2 py-0.5 rounded-full tabular-nums">
+            <span className="text-xs bg-saei-gold text-white px-2 py-0.5 rounded-full tabular-nums">
               {count}
             </span>
           )}

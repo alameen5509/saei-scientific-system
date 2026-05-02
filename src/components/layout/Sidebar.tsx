@@ -88,7 +88,7 @@ export function Sidebar() {
     <aside className="w-64 shrink-0 border-l border-saei-purple-100 bg-white flex flex-col">
       <div className="p-6 border-b border-saei-purple-100">
         <Link href="/dashboard" className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-saei-purple text-white grid place-items-center font-extrabold shadow-saei-sm">
+          <div className="h-10 w-10 rounded-xl bg-saei-hero text-white grid place-items-center font-extrabold shadow-saei-sm">
             س
           </div>
           <div>
@@ -112,14 +112,14 @@ export function Sidebar() {
               className={cn(
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-colors",
                 active
-                  ? "bg-saei-purple text-white shadow-saei-sm"
+                  ? "bg-saei-hero text-white shadow-saei-sm"
                   : "text-saei-purple-700 hover:bg-saei-purple-50"
               )}
             >
               <Icon className="h-5 w-5 shrink-0" />
               <span className="flex-1">{it.label}</span>
               {it.badge !== undefined && (
-                <span className="text-xs bg-saei-gold text-saei-purple-900 px-2 py-0.5 rounded-full">
+                <span className="text-xs bg-saei-gold text-white px-2 py-0.5 rounded-full">
                   {it.badge}
                 </span>
               )}
@@ -134,7 +134,7 @@ export function Sidebar() {
           className={cn(
             "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-colors",
             pathname?.startsWith("/profile")
-              ? "bg-saei-purple text-white"
+              ? "bg-saei-hero text-white"
               : "text-saei-purple-700 hover:bg-saei-purple-50"
           )}
         >

@@ -7,7 +7,7 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-saei-purple text-white",
+        default: "bg-saei-cyan-700 text-white",
         purple: "bg-saei-purple-100 text-saei-purple-700",
         gold: "bg-saei-gold-100 text-saei-gold-700",
         teal: "bg-saei-teal-100 text-saei-teal-700",

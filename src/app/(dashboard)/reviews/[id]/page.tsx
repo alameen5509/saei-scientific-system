@@ -397,8 +397,8 @@ export default function ReviewDetailPage({ params }: PageProps) {
                     className={cn(
                       "rounded-xl border-2 px-3 py-3 text-sm font-bold transition-all",
                       active
-                        ? "border-saei-purple bg-saei-purple text-white shadow-saei-sm"
-                        : "border-saei-purple-200 bg-white text-saei-purple-700 hover:border-saei-purple",
+                        ? "border-saei-cyan-700 bg-saei-hero text-white shadow-saei-sm"
+                        : "border-saei-purple-200 bg-white text-saei-purple-700 hover:border-saei-cyan-600",
                       (isLocked || !isReviewer) &&
                         "opacity-60 cursor-not-allowed"
                     )}

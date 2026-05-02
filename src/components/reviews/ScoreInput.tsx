@@ -15,7 +15,7 @@ interface Props {
 function colorForScore(n: number): string {
   if (n <= 3) return "bg-red-500 text-white border-red-500";
   if (n <= 5) return "bg-amber-500 text-white border-amber-500";
-  if (n <= 7) return "bg-saei-gold text-saei-purple-900 border-saei-gold";
+  if (n <= 7) return "bg-saei-gold text-white border-saei-gold";
   return "bg-emerald-500 text-white border-emerald-500";
 }
 

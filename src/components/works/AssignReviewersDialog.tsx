@@ -216,7 +216,7 @@ function SuggestionRow({
         className={cn(
           "h-10 w-10 rounded-xl grid place-items-center font-extrabold text-sm shrink-0",
           top
-            ? "bg-saei-gold text-saei-purple-900"
+            ? "bg-saei-gold text-white"
             : "bg-saei-purple-100 text-saei-purple-700"
         )}
       >
