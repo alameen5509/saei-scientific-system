@@ -21,7 +21,7 @@ export default function TasksPage() {
 
       <Card>
         <CardHeader className="text-center py-12">
-          <div className="mx-auto h-16 w-16 rounded-2xl bg-saei-purple/10 grid place-items-center text-saei-purple mb-4">
+          <div className="mx-auto h-16 w-16 rounded-2xl bg-saei-purple/10 grid place-items-center text-saei-purple-700 mb-4">
             <CheckSquare className="h-8 w-8" />
           </div>
           <CardTitle>صفحة المهام قيد البناء</CardTitle>

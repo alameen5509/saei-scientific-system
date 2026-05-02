@@ -293,7 +293,7 @@ export default function ProjectsPage() {
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex-row items-center gap-3 p-4">
-            <div className="h-11 w-11 rounded-xl bg-saei-purple/10 text-saei-purple grid place-items-center">
+            <div className="h-11 w-11 rounded-xl bg-saei-purple/10 text-saei-purple-700 grid place-items-center">
               <FolderKanban className="h-5 w-5" />
             </div>
             <div>

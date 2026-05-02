@@ -24,31 +24,33 @@ export function ProjectsBarChart({ data }: { data: ChartDatum[] }) {
           data={data}
           margin={{ top: 12, right: 12, left: 12, bottom: 12 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#E5E1F0" />
+          {/* hex hardcoded — recharts لا يقرأ Tailwind classes */}
+          <CartesianGrid strokeDasharray="3 3" stroke="#CFFAFE" />
           <XAxis
             dataKey="label"
-            stroke="#6B6088"
+            stroke="#0E7490"
             fontSize={12}
             tickLine={false}
             axisLine={false}
           />
           <YAxis
-            stroke="#6B6088"
+            stroke="#0E7490"
             fontSize={12}
             tickLine={false}
             axisLine={false}
             allowDecimals={false}
           />
           <Tooltip
-            cursor={{ fill: "rgba(94, 84, 149, 0.08)" }}
+            cursor={{ fill: "rgba(0, 212, 221, 0.08)" }}
             contentStyle={{
               borderRadius: 12,
-              border: "1px solid #E5E1F0",
+              border: "1px solid #CFFAFE",
               fontFamily: "var(--font-cairo), Cairo, sans-serif",
             }}
-            labelStyle={{ color: "#3F3766", fontWeight: 700 }}
+            labelStyle={{ color: "#0F172A", fontWeight: 700 }}
           />
-          <Bar dataKey="value" fill="#5E5495" radius={[8, 8, 0, 0]} />
+          {/* تركوازي ساعي #00D4DD */}
+          <Bar dataKey="value" fill="#00D4DD" radius={[8, 8, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

@@ -82,7 +82,7 @@ export function Pagination({
                 className={cn(
                   "h-8 min-w-[2rem] px-2 rounded-lg text-xs font-bold tabular-nums transition-colors",
                   p === page
-                    ? "bg-saei-purple text-white"
+                    ? "bg-saei-hero text-white shadow-saei-sm"
                     : "text-saei-purple-700 hover:bg-saei-purple-50"
                 )}
                 aria-current={p === page ? "page" : undefined}
