@@ -67,18 +67,25 @@ model Researcher {
 // ============================================================
 
 model Reviewer {
-  id        String   @id @default(cuid())
-  tenantId  String   @default("saei")
-  userId    String   @unique
-  expertise String?
-  bio       String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  tenantId    String   @default("saei")
+  userId      String   @unique
+  expertise   String?
+  bio         String?
+  // قائمة التخصصات (codes تطابق WorkSpecialty في types/works.ts)
+  specialties String[] @default([])
+  // إحصاءات الأداء — تُحدَّث من جانب التطبيق (مشتقّة)
+  totalAssigned  Int   @default(0)
+  totalCompleted Int   @default(0)
+  active         Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   reviews Review[]
 
   @@index([tenantId])
+  @@index([active])
 }
 
 // ============================================================
@@ -146,26 +153,52 @@ model Review {
   tenantId   String       @default("saei")
   workId     String
   reviewerId String
-  status     ReviewStatus @default(PENDING)
-  rating     Int?
-  comments   String?
-  submittedAt DateTime?
+  status     ReviewStatus @default(ASSIGNED)
+
+  // درجات تقييم من ١-١٠ (تظهر للمنسق فقط، لا للباحث)
+  scientificScore Int?
+  linguisticScore Int?
+  methodologyScore Int?
+
+  // قرار المحكم النهائي
+  decision   ReviewDecision?
+
+  // ملاحظات منظمة
+  recommendations String? @db.Text  // ملاحظات للباحث (مجهولة المصدر)
+  notesToEditor   String? @db.Text  // ملاحظات سرية للمنسق
+
+  // التواريخ
+  assignedAt     DateTime  @default(now())
+  dueDate        DateTime?
+  submittedAt    DateTime?
+  lastRemindedAt DateTime?
+  declinedAt     DateTime?
+  declineReason  String?
+
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
 
   work     ScientificWork @relation(fields: [workId], references: [id], onDelete: Cascade)
   reviewer Reviewer       @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
 
+  @@unique([workId, reviewerId])
   @@index([tenantId])
   @@index([workId])
   @@index([reviewerId])
   @@index([status])
+  @@index([dueDate])
 }
 
 enum ReviewStatus {
-  PENDING
-  IN_REVIEW
-  APPROVED
-  REJECTED
-  NEEDS_REVISION
+  ASSIGNED      // تمّ التعيين، لم يبدأ بعد
+  IN_PROGRESS   // المحكم بدأ العمل
+  SUBMITTED     // تمّ الإرسال (يتضمن قراراً)
+  DECLINED      // المحكم اعتذر عن المراجعة
+}
+
+enum ReviewDecision {
+  ACCEPT          // قبول
+  MINOR_REVISION  // تعديلات يسيرة
+  MAJOR_REVISION  // تعديلات جوهرية
+  REJECT          // رفض
 }

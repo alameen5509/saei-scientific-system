@@ -80,6 +80,12 @@ export const PATH_ROLE_MAP: Array<{ prefix: string; roles: UserRole[] }> = [
   { prefix: "/researchers", roles: WORKS_MANAGERS },
   { prefix: "/tasks", roles: WORKS_MANAGERS },
   { prefix: "/reports", roles: WORKS_MANAGERS },
+  { prefix: "/reviewers", roles: WORKS_MANAGERS },
+  // /reviews متاحة للمحكمين والمنسقين والمدير (ليس الباحثين)
+  {
+    prefix: "/reviews",
+    roles: [...WORKS_MANAGERS, "REVIEWER"],
+  },
   // /dashboard و /profile متاحان لكل مسجَّل
 ];
 

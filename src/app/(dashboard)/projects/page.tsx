@@ -44,6 +44,7 @@ import {
   type WorkFormValues,
 } from "@/components/works/WorkDialog";
 import { WorksPageSkeleton } from "@/components/works/WorksSkeleton";
+import { AssignReviewersDialog } from "@/components/works/AssignReviewersDialog";
 import { useWorks } from "@/components/works/use-works";
 import {
   isOverdue,
@@ -85,6 +86,9 @@ export default function ProjectsPage() {
   // ————— تأكيد الحذف —————
   const [deleteTarget, setDeleteTarget] = useState<ScientificWork | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // ————— تعيين محكمين —————
+  const [assignTarget, setAssignTarget] = useState<ScientificWork | null>(null);
 
   // ————— الفلترة + البحث —————
   const filtered = useMemo(() => {
@@ -401,6 +405,7 @@ export default function ProjectsPage() {
             onEdit={handleEdit}
             onAdvance={handleAdvance}
             onDelete={requestDelete}
+            onAssignReviewers={(w) => setAssignTarget(w)}
           />
 
           <Pagination
@@ -447,6 +452,13 @@ export default function ProjectsPage() {
         loading={deleting}
         onOpenChange={(v) => !deleting && !v && setDeleteTarget(null)}
         onConfirm={confirmDelete}
+      />
+
+      {/* تعيين محكمين */}
+      <AssignReviewersDialog
+        open={!!assignTarget}
+        work={assignTarget}
+        onOpenChange={(v) => !v && setAssignTarget(null)}
       />
     </div>
   );

@@ -129,30 +129,64 @@ async function main() {
     i++;
   }
 
-  // ————— محكم تجريبي + Reviewer profile —————
-  console.log("🧐 إنشاء حساب المحكم...");
-  const reviewerUser = await prisma.user.create({
-    data: {
-      email: "reviewer@saei.local",
-      name: "هيئة المراجعة العلمية",
-      password: adminPw,
-      role: "REVIEWER",
+  // ————— ٣ محكمين بتخصصات متنوعة —————
+  console.log("🧐 إنشاء هيئة المحكمين...");
+  const reviewersData: Array<{
+    email: string;
+    name: string;
+    expertise: string;
+    specialties: string[];
+  }> = [
+    {
+      email: "reviewer.hadith@saei.local",
+      name: "أ.د. محمد البشير",
+      expertise: "علوم الحديث والتخريج",
+      specialties: ["HADITH", "BIO"],
     },
-  });
-  await prisma.reviewer.create({
-    data: {
-      userId: reviewerUser.id,
-      expertise: "المراجعة الشرعية والتحقيق",
+    {
+      email: "reviewer.usul@saei.local",
+      name: "أ.د. عمر الزبير",
+      expertise: "أصول الفقه وتحقيق التراث",
+      specialties: ["USUL", "FIQH"],
     },
-  });
+    {
+      email: "reviewer.tafsir@saei.local",
+      name: "د. ياسر الشمري",
+      expertise: "التفسير والعقيدة",
+      specialties: ["TAFSIR", "AQEEDAH", "ARABIC"],
+    },
+  ];
+  const reviewerIds: string[] = [];
+  const reviewerSpecsById = new Map<string, string[]>();
+  for (const r of reviewersData) {
+    const u = await prisma.user.create({
+      data: {
+        email: r.email,
+        name: r.name,
+        password: adminPw,
+        role: "REVIEWER",
+      },
+    });
+    const rev = await prisma.reviewer.create({
+      data: {
+        userId: u.id,
+        expertise: r.expertise,
+        specialties: r.specialties,
+        active: true,
+      },
+    });
+    reviewerIds.push(rev.id);
+    reviewerSpecsById.set(rev.id, r.specialties);
+  }
 
   // ————— الأعمال العلمية —————
   console.log("📚 إدخال الأعمال العلمية...");
+  const workIdsBySpecialty = new Map<string, string[]>();
   for (const w of SAMPLE_WORKS) {
     const base = stripTitle(w.researcher);
     const researcherId = researcherIdByBase.get(base);
     if (!researcherId) continue;
-    await prisma.scientificWork.create({
+    const created = await prisma.scientificWork.create({
       data: {
         code: w.code,
         title: w.title,
@@ -166,21 +200,58 @@ async function main() {
         notes: w.notes ?? null,
       },
     });
+    const list = workIdsBySpecialty.get(w.specialty) ?? [];
+    list.push(created.id);
+    workIdsBySpecialty.set(w.specialty, list);
   }
+
+  // ————— مراجعات تجريبية —————
+  // لكل عمل في مرحلة REVIEW أو EDITING: نعيّن محكماً مطابقاً للتخصص
+  console.log("📝 إنشاء مراجعات تجريبية...");
+  const worksToReview = await prisma.scientificWork.findMany({
+    where: { stageCode: { in: ["REVIEW", "EDITING"] } },
+    select: { id: true, specialty: true, deadline: true },
+  });
+  let reviewsCreated = 0;
+  for (const w of worksToReview) {
+    // ابحث عن محكمين لتخصص العمل
+    const matching = reviewerIds.filter((id) =>
+      reviewerSpecsById.get(id)?.includes(w.specialty)
+    );
+    if (matching.length === 0) continue;
+    // عيّن أول مطابق
+    const reviewerId = matching[0];
+    const due = new Date(w.deadline);
+    due.setDate(due.getDate() - 14);
+    await prisma.review.create({
+      data: {
+        workId: w.id,
+        reviewerId,
+        status: "ASSIGNED",
+        dueDate: due,
+      },
+    });
+    await prisma.reviewer.update({
+      where: { id: reviewerId },
+      data: { totalAssigned: { increment: 1 } },
+    });
+    reviewsCreated++;
+  }
+  console.log(`   تمّ إنشاء ${reviewsCreated} مراجعة.`);
 
   console.log(
     `\n✅ اكتمل: ${STAGE_ORDER.length} مراحل، ${
       researcherIdByBase.size
-    } باحثين، ${SAMPLE_WORKS.length} عملاً، ${
-      3 + researcherIdByBase.size + 1
-    } مستخدماً.`
+    } باحثين، ${SAMPLE_WORKS.length} عملاً، ${reviewersData.length} محكمين.`
   );
   console.log(`\n🔑 بيانات الدخول التجريبية (كلمة السرّ: ${DEFAULT_PASSWORD}):`);
-  console.log("   - admin@saei.local           (مدير النظام)");
-  console.log("   - research.coord@saei.local  (منسق الأبحاث)");
-  console.log("   - journal.coord@saei.local   (منسق المجلة)");
-  console.log("   - abdullah.salem@saei.local  (باحث)");
-  console.log("   - reviewer@saei.local        (محكم)");
+  console.log("   - admin@saei.local            (مدير النظام)");
+  console.log("   - research.coord@saei.local   (منسق الأبحاث)");
+  console.log("   - journal.coord@saei.local    (منسق المجلة)");
+  console.log("   - abdullah.salem@saei.local   (باحث)");
+  console.log("   - reviewer.hadith@saei.local  (محكم — حديث/تراجم)");
+  console.log("   - reviewer.usul@saei.local    (محكم — أصول/فقه)");
+  console.log("   - reviewer.tafsir@saei.local  (محكم — تفسير/عقيدة/عربية)");
 }
 
 main()

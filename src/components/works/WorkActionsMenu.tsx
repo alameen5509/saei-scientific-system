@@ -1,7 +1,14 @@
 "use client";
 
-// قائمة إجراءات لكل عمل علمي — عرض، تعديل، نقل للمرحلة التالية، حذف
-import { MoreHorizontal, Eye, Pencil, ArrowLeft, Trash2 } from "lucide-react";
+// قائمة إجراءات لكل عمل علمي
+import {
+  MoreHorizontal,
+  Eye,
+  Pencil,
+  ArrowLeft,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -19,6 +26,7 @@ interface Props {
   onEdit: (w: ScientificWork) => void;
   onAdvance: (w: ScientificWork) => void;
   onDelete: (w: ScientificWork) => void;
+  onAssignReviewers?: (w: ScientificWork) => void;
 }
 
 export function WorkActionsMenu({
@@ -27,6 +35,7 @@ export function WorkActionsMenu({
   onEdit,
   onAdvance,
   onDelete,
+  onAssignReviewers,
 }: Props) {
   const next = nextStage(work.stage);
 
@@ -42,7 +51,7 @@ export function WorkActionsMenu({
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-[12rem]">
+      <DropdownMenuContent align="start" className="min-w-[14rem]">
         <DropdownMenuLabel>{work.code}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => onView(work)}>
@@ -53,6 +62,12 @@ export function WorkActionsMenu({
           <Pencil className="h-4 w-4 text-saei-purple-500" />
           تعديل
         </DropdownMenuItem>
+        {onAssignReviewers && (
+          <DropdownMenuItem onSelect={() => onAssignReviewers(work)}>
+            <Users className="h-4 w-4 text-saei-teal" />
+            تعيين محكمين
+          </DropdownMenuItem>
+        )}
         {next && (
           <DropdownMenuItem onSelect={() => onAdvance(work)}>
             <ArrowLeft className="h-4 w-4 text-saei-teal" />

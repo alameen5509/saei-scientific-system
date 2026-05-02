@@ -44,6 +44,7 @@ interface Props {
   onEdit: (w: ScientificWork) => void;
   onAdvance: (w: ScientificWork) => void;
   onDelete: (w: ScientificWork) => void;
+  onAssignReviewers?: (w: ScientificWork) => void;
 }
 
 function ProgressBar({ value }: { value: number }) {
@@ -97,6 +98,7 @@ export function WorksTable({
   onEdit,
   onAdvance,
   onDelete,
+  onAssignReviewers,
 }: Props) {
   return (
     <>
@@ -190,6 +192,7 @@ export function WorksTable({
                     onEdit={onEdit}
                     onAdvance={onAdvance}
                     onDelete={onDelete}
+                    onAssignReviewers={onAssignReviewers}
                   />
                 </TableCell>
               </TableRow>
@@ -227,6 +230,7 @@ export function WorksTable({
                   onEdit={onEdit}
                   onAdvance={onAdvance}
                   onDelete={onDelete}
+                  onAssignReviewers={onAssignReviewers}
                 />
               </div>
 

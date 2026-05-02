@@ -12,6 +12,8 @@ import {
   FileBarChart,
   UserCog,
   Shield,
+  UserCheck,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/types";
@@ -46,6 +48,23 @@ const items: NavItem[] = [
     label: "التقارير",
     icon: FileBarChart,
     roles: ["ADMIN", "RESEARCH_COORDINATOR", "JOURNAL_COORDINATOR"],
+  },
+  {
+    href: "/reviewers",
+    label: "هيئة المحكمين",
+    icon: UserCheck,
+    roles: ["ADMIN", "RESEARCH_COORDINATOR", "JOURNAL_COORDINATOR"],
+  },
+  {
+    href: "/reviews",
+    label: "المراجعات",
+    icon: ClipboardList,
+    roles: [
+      "ADMIN",
+      "RESEARCH_COORDINATOR",
+      "JOURNAL_COORDINATOR",
+      "REVIEWER",
+    ],
   },
   {
     href: "/users",
